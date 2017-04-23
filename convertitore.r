@@ -3,7 +3,7 @@ REBOL [
  Author: "Massimiliano Vessi"
  Email: maxint@tiscali.it
  Date: 19-Jun-2009 
- version: 1.4.13
+ version: 1.4.14
  file: %convertitore.r
  Purpose: {"The best unit converter on earth!"}
  
@@ -114,7 +114,8 @@ inmetri3:  func [ misura  unit ]
    if unit = "feet3" [ conv: 0.028317 ]
    if unit = "inch3" [ conv: 0.000016 ]
    if unit = "cups" [ conv: 0.000237 ]
-   if unit = "gallons" [ conv: 0.004546 ]
+   if unit = "gallonsUK" [ conv: 0.004546 ]
+   if unit = "gallonsUSA" [ conv:  0.003785411784]
    if unit = "pints" [ conv: 0.000568 ]
    if unit = "quarts" [ conv: 0.001137 ]
    if unit = "tablespoons" [ conv: 0.000015 ]
@@ -130,7 +131,8 @@ inmetri3:  func [ misura  unit ]
    feet3/text: troncare do [ SImetri / 0.028317 ]
    inch3/text: troncare do [ SImetri / 0.000016 ]
    cups/text: troncare do [ SImetri / 0.000237 ]
-   gallons/text: troncare do [ SImetri / 0.004546 ]
+   gallonsUK/text: troncare do [ SImetri / 0.004546 ]
+   gallonsUSA/text: troncare do [ SImetri /  0.003785411784 ]
    pints/text: troncare do [ SImetri / 0.000568 ]
    quarts/text: troncare do [ SImetri / 0.001137 ]
    tablespoons/text: troncare do [ SImetri / 0.000015 ]
@@ -326,8 +328,11 @@ volume: layout [
         cups: field  [ inmetri3  cups/text "cups"]
         text "cups"
         return
-        gallons: field  [ inmetri3  gallons/text "gallons"]
-        text "gallons"
+        gallonsUK: field  [ inmetri3  face/text "gallonsUK"]
+        text "gallons UK"
+	return
+        gallonsUSA: field  [ inmetri3  face/text "gallonsUSA"]
+        text "gallons USA"
         return
         pints: field  [ inmetri3  pints/text "pints"]
         text "pints"
@@ -813,8 +818,8 @@ view layout  [
  below
  
  return
- pannelli: box  400x440
+ pannelli: box  400x500
  return 
- logo-bar 24x440
+ logo-bar 24x500
 
 ]

@@ -1,50 +1,56 @@
 rebol [
-	file:       %vprint.r
-	date: 		2006-6-10
-	title: 		{vprint: print/logging management tool}
-	purpose:	"programable, indented, console printing/tracing/file logging/debugging engine."
+    title:      {vprint: print/logging management tool}
+	version: 	1.3.2
+	date: 		2008-12-11
 	author:		"Maxim Olivier-Adlhoch"
-	version: 	1.3.0
-	copyright:	"Copyright (c) 2002-2006 Maxim Olivier-Adlhoch"
-	license:    'bsd
-    library: [
+	copyright:	"Copyright (c) 2002-2008 Maxim Olivier-Adlhoch"
+	file:       %vprint.r
+	license:    'mit
+	purpose:	"programatically selectable, indented printing/tracing/logging/debugging engine."
+
+	;-- REBOL.ORG header --
+ 	library: [
         level: 'intermediate
         platform: 'all
         type: [module]
-        domain: [debug file-handling testing]
-        tested-under: [view 1.3.2 core 2.6.2]
-        support: [moliad@gmail.com]
-        license: 'bsd
-        see-also: none
+        domain: [external-library debug file-handling testing]
+        tested-under: [win view 2.7.5]
+        license: 'MIT
+        see also: none
     ]
-
+    
+	changes: {}
 	History: {
-	v1.2.2 - 8-May-2006/12:44:49 (MOA)
-		-unified tag usage by adding print?() and indented-print()
-		-updated v??()
-		-added vprint() and related indented-prin()
+		v1.2.2 - 8-May-2006/12:44:49 (MOA)
+			-unified tag usage by adding print?() and indented-print()
+			-updated v??()
+			-added vprint() and related indented-prin()
+	
+		v1.2.3 - 2-Jun-2006/11:36:28 (MOA)
+			-add log-file capapabilites to whole module
+			-reworked some funcs to accomodate the logging.
+			-fixed a few logging-related bugs.
+	
+		v1.2.4 - 6-Jun-2006/16:39:48 (MOA)
+			-added vlogclear
+			-von always sets verbose on, otherwise tags don't work anyways.
+	
+		v1.3.0 - 10-Jun-2006/18:17:36 (MOA)
+	
+		v1.3.1 - 2008-12-11/15:22:40 (max)
+			-optimised exclude
+			-one or two little tweaks (fixes?)
 
-	v1.2.3 - 2-Jun-2006/11:36:28 (MOA)
-		-add log-file capapabilites to whole module
-		-reworked some funcs to accomodate the logging.
-		-fixed a few logging-related bugs.
-
-	v1.2.4 - 6-Jun-2006/16:39:48 (MOA)
-		-added vlogclear
-		-von always sets verbose on, otherwise tags don't work anyways.
-
-	v1.3.0 - 10-Jun-2006/18:48:57 (MOA)
-		-last prerelease fixes
-		-release code cleanup
-		-added library: to header to upload on rebol.org.
+		v1.3.2 - 2008-12-11/15:29:29 (max)
+			-license change to MIT
 	}
-	to-do: {
-		-include vask function in puclic distribution, which functions the same way as the other vprint
-		 functions but instead simulates a breakpoint, by asking a question in the console.
+	todo: {
+		-include vask function in public distribution, which functions the same way as the other vprint
+		 functions but instead causes a break in the code, by asking a question in the console.
 		 
 		 This function also responds to tags, so you can switch any breakpoints, programatically!
 		 
-		-create a view-enabled version of vask, which pops up a modal window, forcing you to say "ok" 
+		-create a view-enabled version of vask, which pops up a modal window, forcing you to click "ok" 
 		 before app continues.
 		 
 	}
@@ -54,6 +60,7 @@ rebol [
 
 ;; conditional lib execution, simulates C/C++ #ifndef 
 do unless (value? 'lib-vprint) [[
+
 
 ;; declare lib
 lib-vprint: true
@@ -132,18 +139,20 @@ print?: func [
 	always
 	tags
 ][
-	any [
-		error
-		all [
-			any [verbose always] 
-			not any [
-				all [
-					not empty? vtags
-					not match-tags vtags tags
-				]
-				all [
-					not empty? ntags
-					match-tags ntags tags
+	all [
+		any [
+			error
+			all [
+				any [verbose always] 
+				not any [
+					all [
+						not empty? vtags
+						not match-tags vtags tags
+					]
+					all [
+						not empty? ntags
+						match-tags ntags tags
+					]
 				]
 			]
 		]
@@ -163,16 +172,6 @@ log?: func [
 			error
 			all [
 				any [verbose always] 
-				not any [
-					all [
-						not empty? log-vtags
-						not match-tags log-vtags tags
-					]
-					all [
-						not empty? log-ntags
-						match-tags log-ntags tags
-					]
-				]
 			]
 		]
 	][
@@ -308,10 +307,8 @@ set 'von func [/tags lit-tags  /log log-tags] [
 ;-    EXCLUDE()
 ;----
 exlude: func [serieA serieB][
-	foreach item serieB [
-		if serieB: find serieA item [
-			remove serieB
-		]
+	remove-each item serieB [
+		find serieA item 
 	]
 ]
 
@@ -551,7 +548,7 @@ set 'vflush func [/disk logfile [file!]] [
 ]
 
 ; end lib
-print "loaded vprint library"
+;print "loaded vprint library"
 
 
 ]]]

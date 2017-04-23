@@ -1,8 +1,8 @@
 REBOL [	
 	Title: "PhotoPoint"
 	Purpose: {Combine GPS tracklog and jpeg/exif files to find out where digital photos were taken}
-	Date: 2005-12-21
-	Version: 0.2.3
+	Date: 2006-07-10
+	Version: 0.4.1
 	Author: "Piotr Gapinski"
 	Email: {news [at] rowery! olsztyn.pl}
 	File: %photopoint.r
@@ -15,8 +15,8 @@ REBOL [
 		3. adjust "timezone" variable in photopoint.r (time offset to GMT)
 		4. do %photopoint.r
 		
-		Waypoints are stored in photopoint.wpt file (OZI-explorer WPT format)
- 		As long as the GPS was in the same location as the camera this represents the locations of the photos.
+		Waypoints are stored in images (as jpeg comment) and in photopoint.wpt file (OZI-explorer WPT format).
+ 		As long as the GPS was in the same location as the camera this represents the location of the photo.
 	}
 	Library: [
 		level: 'intermediate
@@ -33,7 +33,7 @@ REBOL [
 ]
 
 ; strefa czasowa w zaleznosci od daty tracklogu
-timezone: +2:00
+timezone: +00:00
 
 ctx-exif: context [
 	set 'EXIF-SOI  #{FFD8}
@@ -257,20 +257,45 @@ ctx-exif: context [
 
 		return do EXIF-FORMS/:format/2 copy/part skip bin ((length? bin) - length) length
 	]
-]
 
-jpeg-datetime: func [
-	"Zwraca date! wykonania zdjecia zwarta w strukturze EXIF (lub none!)."
-	[catch]
-	file-name [file! string!] "nazwa pliku zdjecia"
-	/local date time] [
+	set 'jpeg-datetime func [
+		"Zwraca date! wykonania zdjecia zwarta w strukturze EXIF (lub none!)."
+		[catch]
+		file-name [file! string!] "nazwa pliku zdjecia"
+		/local date time] [
 
-	;; jezeli plik nie ma danych EXIF to zwroc none!
+		if not good-file? to-file file-name [return none]
+		attempt [
+			set [date time] parse/all trim exif-tag #{0132} " " ;; "DateTime Tag"
+			to-date rejoin [replace/all date ":" "-" "/" time] ;; "+" now/zone] ;; mozliwosc dodania strefy czasowej
+		]
+	]
 
-	if not good-file? to-file file-name [return none]
-	attempt [
-		set [date time] parse/all trim exif-tag #{0132} " " ;; "DateTime Tag"
-		to-date rejoin [replace/all date ":" "-" "/" time] ;; "+" now/zone] ;; mozliwosc dodania strefy czasowej
+	set 'jpeg-thumbnail func [
+		"Zwraca image! miniaturki zdjecia z pliku EXIF lub none! (obsluguje tylko JPEG EXIF)."
+		[catch]
+		file-name [file! string!] "nazwa pliku zdjecia"
+		/binary "Zwraca zdjecie w formacie binary! (JPEG)"
+		/local compression location size thumb] [
+
+		if not good-file? to-file file-name [return none]
+		attempt [
+			set [compression location size] exif-tag [#{0103} #{0201} #{0202}] ;; Compression, Size, OffsetTag
+			if compression = 6 [
+				;; 6 oznacza iz mamy do czynienia z miniaturka zdjecia w formacie JPEG
+				thumb: self/get-content location size
+				either binary [thumb] [load thumb]
+			]
+		]
+	]
+
+	set 'jpeg-size func [
+		"Zwraca pair! rozdzielczosci zdjecia EXIF lub none!"
+		[catch]
+		file-name [file! string!] "nazwa pliku zdjecia"] [
+
+		if not good-file? to-file file-name [return none]
+		attempt [to-pair exif-tag [#{a002} #{a003}]]
 	]
 ]
 
@@ -317,7 +342,7 @@ ctx-ozi: context [
 				latitude: wpt/latitude
 				longitude: wpt/longitude
 				altitude: to-feet wpt/altitude
-				description: replace (copy/part reform [wpt/image wpt/datetime] 40) "," "_"
+				description: replace (copy/part reform [wpt/image wpt/image-datetime] 40) "," "_"
 				datetime: to-ozitime wpt/datetime
 
 				dat: rejoin [
@@ -387,47 +412,99 @@ ctx-ozi: context [
 	]
 ]
 
-to-gps: func [
-   "Wyszukuje wspolrzedne geograficzne na podstawie daty; zwraca block! [lat lon date] lub none!"
-	track [hash! block!] "tracklog"
-	datetime [date!] "data poszukiwanego punktu"
-	zone [time!] "przesuniecie czasowe dodawane do daty punktu"
-	/local i diff delta duration] [
+ctx-photopoint: context [
+	byte-order: ""
 
-	; oblicz roznice miedzy data punktu trasy i poszukiwanego miejsca
-	; szukamy minimum tej roznicy
+	to-hex: func [val /local s r] [
+		s: make struct! [i [integer!]] none
+		s/i: val
+		r: copy/part (third s) 2
+		either self/byte-order = "II" [reverse r] [r]
+	]
 
-	diff: make hash! length? track
-	foreach point track [
+	set 'find-location func [
+		"Wyszukuje wspolrzedne geograficzne na podstawie daty; zwraca block! [lat lon date] lub none!"
+		track [hash! block!] "tracklog"
+		datetime [date!] "data poszukiwanego punktu"
+		zone [time!] "przesuniecie czasowe dodawane do daty punktu"
+		/local i diff delta duration] [
+
+		; oblicz roznice miedzy data punktu trasy i poszukiwanego miejsca
+		; szukamy minimum tej roznicy
+
+		diff: make hash! length? track
+		foreach point track [
+			attempt [
+				append diff (abs difference (zone + (point/datetime)) datetime)
+			]
+		]
 		attempt [
-			append diff (abs difference (zone + (point/datetime)) datetime)
+			; ignoruj gdy data zdjecia nie pasuje do dat w tracklogu
+			duration: abs difference (select last track 'datetime) (select first track 'datetime)
+			i: index? delta: minimum-of diff
+			if (first delta) < duration [copy track/:i]
 		]
 	]
-	attempt [
-		; ignoruj gdy data zdjecia nie pasuje do dat w tracklogu
-		duration: abs difference (select last track 'datetime) (select first track 'datetime)
-		i: index? delta: minimum-of diff
-		if (first delta) < duration [copy track/:i]
+
+	set 'make-comment func [
+		"zapis informacji o waypoincie jako komentarz pliku JPEG"
+		file [string! file!] "nazwa pliku JPEG"
+		location [block!]
+		/backup "zapisuj informacje do kopii oryginalow"
+		/local new-file dat pos info] [
+
+		file: to-file file
+		orig: join file ".orig"
+
+		; zabezpiecz oryginal pliku
+		if none? attempt [
+				dat: read/binary/direct file
+				pos: to-integer ctx-exif/read-traverse/position file EXIF-APP1
+				rename file orig
+			] [return false]
+
+		; jezeli pojawi sie blad to usun nowy plik i przywroc oryginalna nazwe
+		any [
+			attempt [
+				byte-order: to-string ctx-exif/range/custom (pos + 10) 2 dat
+				len: 2 + to-integer ctx-exif/range/custom (pos + 2) 2 dat ;; wielkosc danych w chunk + dwa bajty na sam znacznik
+				info: form location
+
+				write/binary file copy/part dat (pos + len)
+				write/append/binary file repend #{} [EXIF-CMT (to-hex 2 + length? info) (to-binary info)]
+				write/append/binary file (skip dat (pos + len))
+				if not value? 'backup [delete orig]
+				true
+			]
+			do [
+				attempt [delete file]
+				attempt [rename orig file]
+				false
+			]
+		]
 	]
 ]
 
-; main
 ; sprawdz wszystkie pliki jpg w biezacym katalogu
 if none? track: load-plt %tracklog.plt [print "tracklog load error" halt]
 files: remove-each file read %. [(suffix? file) <> %.jpg]
-waypoints: copy []
+if empty? files [print "no files to process" halt]
 
+waypoints: copy []
 foreach file files [
 	any [
 		if none? datetime: jpeg-datetime file [print ["exif metadata not found" file] true]
-		if none? location: to-gps track datetime timezone [print ["location not found" file] true]
+		if none? location: find-location track datetime timezone [print ["location not found" file] true]
 		attempt [
-			repend location ['image (form file)]
+			;; print [file location/latitude location/longitude location/datetime]
+			repend location ['image (form file) 'image-datetime datetime]
 			append/only waypoints location
+			make-comment/backup file location
 		]
 	]
 ]
 
 save-wpt %photopoint.wpt waypoints
+
 if (length? files) <> (length? waypoints) [halt]
 quit

@@ -1,15 +1,15 @@
 REBOL [
 	Title:		"RebXML to XML Converter"
-	Date:		26-Feb-2005
-	Version:	1.2.0
+	Date:		02-Mar-2009
+	Version:	1.3.1
 	File:		%rebxml2xml.r
 	Author:		"John Niclasen"
-	Rights:		{Copyright © John Niclasen, NicomSoft 2005}
-	Purpose:	{Converts a RebXML block structure to XML.
-		RebXML specification: http://home.tiscali.dk/john.niclasen/rebxml/rebxml-spec.html
-		Needs: REBOL/Core 2.5.3
-	}
+	Rights:		{Copyright Â© John Niclasen, NicomSoft 2005}
+	Purpose:	{Converts a RebXML block structure to XML.}
 	History: [
+		1.3.1	[02-Mar-2009 "JN"  {Fixed potential bug in EmptyElemTag.}]
+		1.3.0	[08-Nov-2005 "JN"  {Fixed bug with value in Attribute.
+									Added Comment.}]
 		1.2.0	[26-Feb-2005 "JN"  {Added support for utf-8.}]
 		1.1.1	[24-Feb-2005 "JN"  {Changed EmptyElemTag from # to a slash: /}]
 		1.1.0	[23-Feb-2005 "JN"  {Added improved build-tag.
@@ -100,6 +100,8 @@ prolog: [
 	][
 		insert output {<?xml version="1.0" encoding="ISO-8859-1"?>^/}
 	])
+	;any Comment
+	any CharData
 ]
 
 element: [
@@ -117,6 +119,7 @@ STag: [
 Attribute: [
 	mark: lit-slash :mark break
 	| set att [word! | url!] set value string! (
+		value: copy value
 		replace/all value #"&" "&amp;"
 		replace/all value #"<" "&lt;"
 		replace/all value #">" "&gt;"
@@ -132,26 +135,34 @@ ETag: [
 ]
 
 EmptyElemTag: [
-	set name [word! | url!] (clear tag insert tag name) any Attribute lit-slash (
+	set name [word! | url!] (clear tag insert tag name)
+			[lit-slash | any Attribute lit-slash] (
 		insert tail tag #"/"
 		insert tail output build-tag tag
 	)
 ]
 
 content: [
-	opt CharData any [element opt CharData]
+	;opt CharData any [Comment | element opt CharData]
+	any [CharData | element]
 ]
 
 CharData: [
 	set value string! (
+		either (copy/part value 4) = "<!--" [	; comment
+			insert tail output value
+		][
 		replace/all value #"&" "&amp;"
 		replace/all value #"<" "&lt;"
 		replace/all value #">" "&gt;"
 		replace/all value #"'" "&apos;"
 		replace/all value #"^"" "&quot;"
 		insert tail output value
+		]
 	)
 ]
+
+;Comment: [set value string! (insert tail output value)]
 
 set 'rebxml2xml func [
 	data

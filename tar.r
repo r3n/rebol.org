@@ -1,7 +1,7 @@
 REBOL [
     Title: "Tar"
-    Date: 2-Jan-2004
-    Version: 1.0.0
+    Date: 11-Jan-2013
+    Version: 1.1.0
     File: %tar.r
     Author: "Vincent Ecuyer"
     Purpose: {Creates tar archives.}
@@ -20,16 +20,22 @@ REBOL [
             write/binary %test.tgz gzip tar [%some-files ...]
 
             Resulting archive is usually smaller than a *.zip of the same files
+			
+        Compatibility tested with 7-Zip 9.20 on WindowsXP SP3 and bsdtar 2.6.2 on MacOSX 10.6.8.
     }
+    History: [
+        1.0.0 [2-Jan-2004 "First release"]
+        1.1.0 [11-Jan-2013 "Fixed end-of-file padding and added r3 comptability"]
+    ]
     Library: [
         level: 'advanced
         platform: 'all
         type: [module tool]
         domain: [file-handling files compression]
         tested-under: [
-        	view 1.2.1.3.1  on [Win2K]
-        	view 1.2.10.3.1 on [Win2K]
-        	core 2.5.0.1.1  on [AmigaOS30]
+        	view 2.7.8.3.1 on [WinXP]
+        	view 2.7.8.2.5 on [Macintosh osx-x86]
+        	core 2.101.0.2.5 on [Macintosh osx-x86]
         ]
         support: none
         license: 'public-domain
@@ -38,18 +44,25 @@ REBOL [
 ]
 
 ctx-tar: context [
+    get-modes: either (system/version/2 < 100) [
+        get in system/words 'get-modes
+    ][
+        func [target mode][query/mode target mode]
+    ]
+
     to-octal: func [
         "Converts an integer to an octal issue!."
         value [integer!] "Value to be converted"
         /local t
     ][
-        value: join "0" enbase/base do rejoin ["16#{" to-hex value "}"] 2
+        value: join "0" enbase/base at tail do rejoin ["16#{" next mold to-hex value "}"] -4 2
         t: copy {}
         forskip value 3 [
+            copy/part value 3
             append t next
             enbase/base do rejoin ["2#{00000" copy/part value 3 "}"] 16
         ]
-        to-issue t
+        t
     ]
 
     octal-time: func [
@@ -62,19 +75,19 @@ ctx-tar: context [
 
     char: func [
         "Encodes the value into a null terminated fixed length string."
-        value [any-string!] "String to encode"
+        value [any-string! binary!] "String to encode"
         len [integer!] "Required length"
     ][
-        copy/part head insert/dup tail copy value #{00} len len
+        copy/part head insert/dup tail to-binary value #{00} len len
     ]
 
     num: func [
         "Encodes the value into a fixed length octal string."
         value [integer!] "Number to encode"
         len [integer!] "Required length"
-     ][
+    ][
         value: head insert/dup form to-octal value "0" len
-        copy skip tail value (- len)
+        copy skip tail value (0 - len)
     ]
 
     ;number terminator
@@ -114,7 +127,7 @@ ctx-tar: context [
         mode: form mode
         append mode stop
         insert mode "0000000"
-        mode: copy skip tail mode -8
+        copy skip tail mode -8
     ]
 
     set-typeflag: func [
@@ -124,7 +137,7 @@ ctx-tar: context [
 
     tar-checksum: func [
         "Returns an octal string with the sum of bytes."
-        data [any-string!] "Data to checksum"
+        data [any-string! binary!] "Data to checksum"
         /local r
     ][
         r: 0
@@ -154,8 +167,10 @@ ctx-tar: context [
         change skip r 148 tar-checksum r
         r: head insert/dup tail r #{00} 512 - length? r
         if #"/" <> last value [
-            append r read/binary value
-            head insert/dup tail r #{00} 512 - ((length? r) // 512)
+            append r either system/version/2 < 100 [read/binary value][read value]
+            if 0 <> ((length? r) // 512) [
+                r: head insert/dup tail r #{00} 512 - ((length? r) // 512)
+            ]
         ]
         r
     ]
@@ -165,9 +180,9 @@ ctx-tar: context [
         value [file! block!] "Files to include in archive"
         /local r
     ][
-        if file? value [return add-file value]
+        if file? value [value: reduce [value]]
         r: copy #{}
         foreach file value [append r add-file file]
-        r
+        head insert/dup tail r #{00} 1024
     ]
 ]

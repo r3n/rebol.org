@@ -3,19 +3,20 @@ REBOL [
     Date: 1-Oct-2001
     Version: 1.0.0
     File: %facebroadcast.r
-    Author: "Norman Deppenbroek"
+    Author: "ND"
     Purpose: "UDP broadcast example"
-    Email: nodep@dds.nl
-    library: [
-        level: none
-        platform: none
-        type: none
-        domain: [tcp other-net]
-        tested-under: none
-        support: none
-        license: none
+    Email: none
+   library: [
+        level: 'beginner
+        platform: 'all 
+        type: 'Tool 
+        domain: [tcp other-net] 
+        tested-under: none 
+        support: none 
+        license: none 
         see-also: none
     ]
+ 
 ]
 
 data: "1101001011110000"

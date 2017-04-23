@@ -2,6 +2,7 @@ rebol [
 	title:   "GLayout demo"
 	file:	%glayout-demo.r
 	version:  0.9.1
+	author: "Maxim Olivier-Adlhoch"
 	date:     2006-11-17
 	purpose:  "Demonstration of GLayout's features and capabilities."
 	library: [

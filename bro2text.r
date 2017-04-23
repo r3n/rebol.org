@@ -5,11 +5,11 @@ REBOL [
     File: %bro2text.r
     Author: "Ryan S. Cole"
     Purpose: {Converts some brother word processing files (.wpt) to text.}
-    Email: ryancole@usa.com
+    Email: ryan@practicalproductivity.com
     Comments: {This script runs with REBOL/view, download from www.rebol.com}
     library: [
         level: 'intermediate 
-        platform: none 
+        platform: 'all
         type: 'Tool 
         domain: [file-handling parse text-processing] 
         tested-under: none 

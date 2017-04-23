@@ -1,28 +1,10 @@
 REBOL [
     Title: "A more XML 1.0 compliant set of XML parsing tools."
     File:  %xml-parse.r
-    Date:  2-Mar-2005
-    Version: 0.7.5
-    Email:  brianwisti@yahoo.com
+    Date:  1-jul-2009
+    Version: 0.7.6
     Author: "Gavin F. McKenzie"
-    License: "Unknown"
-    library: [
-        level: 'advanced
-        platform: 'all
-        type: 'module
-        domain: [markup web xml]
-        tested-under: none
-        license: none
-        see-also: none
-        support: brianwisti@yahoo.com
-    ]
-
-    Acknowledgements: {
-      Gavin F. MacKenzie wrote the original releases of this file,
-      so it just plain wouldn't have happened without him. I hope he
-      knows we're grateful and we hope he's doing well - wherever he's
-      disappeared to!
-    }
+    Email:  brianwisti@yahoo.com
     Purpose: {
         REBOL's built-in parse-xml function lacks a number of 
         XML 1.0 compliant features, including:
@@ -150,18 +132,23 @@ REBOL [
            @@TBD: say more here
     }
     History: [
-        0.7.5 { Downloaded from web.archive, changed some names and
-                uploaded to REBOL.org. }
-        0.7.4 { Fixed a defect to allow optional space around
-                the '=' on an attribute.  
-                Thanks to Brett Handley for reporting the defect.}
-        0.7.3 { Fixed bug where attr-ns-prefix wasn't getting cleared
-                when processing an un-prefixed attribute.}
-        0.7.2 { Changed the start-document in the block-handler
-                to perform a copy/deep, fixing a bug that occurred
-                on successive invocations of parse-xml+.}
-        0.7.1 { First public release. }
+    0.7.4 { Fixed a defect to allow optional space around
+            the '=' on an attribute.  
+            Thanks to Brett Handley for reporting the defect.}
+    0.7.3 { Fixed bug where attr-ns-prefix wasn't getting cleared
+            when processing an un-prefixed attribute.}
+    0.7.2 { Changed the start-document in the block-handler
+        to perform a copy/deep, fixing a bug that occurred
+        on successive invocations of parse-xml+.}
+    0.7.1 { First public release. }
+
     ]
+ Acknowledgements: {
+    Gavin F. MacKenzie wrote the original releases of this file,
+    so it just plain wouldn't have happened without him. I hope he
+    knows we're grateful and we hope he's doing well - wherever he's
+    disappeared to!
+    }
 ]
 
 ; TO DO
@@ -340,9 +327,9 @@ xml-parse: make object! [
         end-prefix-mapping: func [
             ns-prefix-uri-pairs [block!] 
         ][
-            print remold [['end-prefix ns-prefix-uri-pairs]
+            print remold ['end-prefix ns-prefix-uri-pairs]
         ]
-    ]]
+    ]
 
     ;
     ; This xml-parse-handler produces a set of nested blocks representing
@@ -352,7 +339,7 @@ xml-parse: make object! [
     ; hence, existing code intended for use with REBOL's existing post-parse
     ; block structure should continue to work.
     ;
-    block-handler: make xml-parse-handler [[
+    block-handler: make xml-parse-handler [
         xml-doc: copy []
         xml-block: copy []
         xml-content: copy ""
@@ -463,14 +450,14 @@ xml-parse: make object! [
         get-parse-result: func [] [
             xml-block
         ]
-    ]]
+    ]
 
     ;
     ; This xml-parse-handler enhances the block-handler with namespace 
     ; processing.  It should only be used with a parser that has been
     ; set to namespace-aware true.
     ;
-    ns-block-handler: make xml-parse-handler [[
+    ns-block-handler: make xml-parse-handler [
         xml-doc: copy []
         xml-block: copy []
         xml-content: copy ""
@@ -596,7 +583,7 @@ xml-parse: make object! [
         get-parse-result: func [] [
             xml-block
         ]
-    ]]
+    ]
 
 
 
@@ -606,7 +593,7 @@ xml-parse: make object! [
     ;
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-    parser: make object! [[
+    parser: make object! [
         element-q-name:     none
         element-local-name: none
         document-type:      none
@@ -851,9 +838,8 @@ xml-parse: make object! [
                             ]
         xmlVersionInfo:     [   "version"
                                 xmlEq 
-                                [   xmlQuote
-                                    copy version-info xmlVersionNum
-                                    xmlQuote
+                                [   #"^"" copy version-info xmlVersionNum "^"" |
+									#"^'" copy version-info xmlVersionNum "^'" 
                                 ]
                             ]
         xmlVersionNum:      [some [xmlVersionNumChars | "-"]]
@@ -865,9 +851,8 @@ xml-parse: make object! [
         xmlEncodingDecl:    [   (encoding: none)
                                 "encoding"
                                 xmlEq 
-                                [   xmlQuote
-                                    copy encoding xmlEncName
-                                    xmlQuote
+                                [   #"^"" copy encoding xmlEncName "^"" |
+									#"^'" copy encoding xmlEncName "^'" 
                                 ]
                             ]
         xmlEncName:         [xmlAlpha any [xmlEncNameChars]]
@@ -1151,14 +1136,14 @@ xml-parse: make object! [
     ]
 
 ]
-]
-parse-xml+: func [[{
+
+parse-xml+: func [{
     Parses XML code and returns a tree of blocks.
     This is a more XML 1.0 compliant parse than the built-in
     REBOL parse-xml function.
 }
     code [string!] "XML code to parse"
-]] [
+][
     xml-parse/parser/parse-xml code
 ]
 

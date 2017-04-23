@@ -6,6 +6,7 @@ Rebol [
     One-liner-length: 100
     Version: 1.0.0
     Author: {Ammon Johnson}
+    Email: ammon.johnson@gmail.com
     Library: [
         level: 'beginner
         platform: none

@@ -1,6 +1,6 @@
 REBOL[
 	File: %dos-dir.r
-	Date: 18-11-2005
+	Date: 13-7-2007
 	Title: "DIR"
 	Author: "REBolek"
 	Purpose: "DOS-like DIR command."
@@ -14,16 +14,56 @@ REBOL[
 		license: 'public-domain
 		see-also: none
 	]
-	Version: 1.0.0
-	History: [1.0.0 18-11-2005 "first public release"]
+	Version: 1.1.0
+	History: [
+		1.1.0 13-7-2007 "wildcard support added"
+		1.0.0 18-11-2005 "first public release"
+	]
+]
+
+match: func [
+	"Match a string againts wildcards"
+	string 
+	rules
+	/local chars rules= =bset
+][
+	chars: charset [#"a" - #"z" #"A" - #"Z" #"0" - #"9" "+-!_."]
+	rules=: copy []
+	parse rules [
+		some [
+			[
+				#"[" (=bset: charset "")
+				some [
+					copy val1 chars
+					#"-"
+					copy val2 chars (insert bset charset compose [(val1) - (val2)])
+				|	copy val chars (insert =bset val)
+				]
+				#"]"  (append rules= =bset)
+			]
+		|	#"*"	(append rules= 'thru)
+		|	#"?"	(append rules= [1 skip])
+		|	copy val chars (append rules= val)
+		]
+	]
+	if equal? 'thru last rules= [remove back tail rules=] 
+	append rules= [to end] ;really?
+	parse string rules= 
 ]
 
 dir: func  [ "Print content of a directory"
 	path [any-type!] "Optional path to directory"
-	/local fls
+	/local fls match-file
 ][
 	if not value? 'path [path: %./]
-	if not equal? #"/" last path [append path "/"]
+	either equal? #"/" last path [
+		;list directory
+		match-file: %*
+	][
+		;list matching files (?)
+		;append path "/"
+		set [path match-file] split-path path
+	]
 	parse-date: func [dt][
 		either none? dt [
 			"unknown time and date"
@@ -55,5 +95,10 @@ dir: func  [ "Print content of a directory"
 	sort dirs
 	sort files
 	foreach dr dirs [print rejoin [parse-date modified? join path dr "^-^-<DIR>^-" dr]]
-	foreach fl files [print rejoin [parse-date modified? join path fl parse-size size? join path fl "^-" fl]]
+	foreach fl files [
+		if match fl match-file [
+			print rejoin [parse-date modified? join path fl parse-size size? join path fl "^-" fl]
+		]
+	]
+	path
 ]

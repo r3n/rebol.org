@@ -1,20 +1,19 @@
 REBOL [
    Author: {Izkata}
-   Email: Izkata@Comcast.net
+   Email: Izkata@gmail.com
    File: %simple-system-tray.r
    Date: 5-Jul-2005
    Title: {Simple System Tray}
    Purpose: {
       After learning Rebol 1.3 could place itself in the System Tray on Windows,
       and after finding Graham's example, I decided to make a slightly simpler
-      version of the System Tray dialect....
+      version of the System Tray dialect.
 
       Since it's based on Graham's example, it may well be missing stuff...
 
-      Feel free to email me anything about it, I'll likely edit and repost it!   (^.-)
+      Later note:  This was also an experiment for me, learning the parse dialect.
    }
    Example: {
-      -->I am a dolt<--  (Forgot to include how to use it!)
       Pretty simple, really, hence the reason I made it:
 
       ToSystemTray [
@@ -72,7 +71,7 @@ MySysTray: make object! [
       system/ports/system: open [scheme: 'system]
       append system/ports/wait-list system/ports/system
 
-      system/ports/system/awake: func [port /local Which][
+      system/ports/system/awake: func [port /local r][
          if all [
             r: pick port 1
             r/1 = 'tray

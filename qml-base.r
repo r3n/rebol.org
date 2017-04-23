@@ -9,7 +9,6 @@ REBOL [
         license: 'mit
         see-also: none
         ]
-
     Title: {Qtask Markup Language - parser and other common code}
     File: %qml-base.r
     Purpose: {
@@ -20,7 +19,7 @@ REBOL [
     Author: "Gabriele Santilli"
     EMail: giesse@rebol.it
     License: {
-        Copyright (c) 2006 Prolific Publishing, Inc.
+        Copyright (c) 2006-2007 Prolific Publishing, Inc.
 
         Permission is hereby granted, free of charge, to any person obtaining a
         copy of this software and associated documentation files (the
@@ -41,8 +40,8 @@ REBOL [
         TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
         SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     }
-    Date: 21-Aug-2006
-    Version: 2.37.1
+    Date: 6-Apr-2007
+    Version: 2.46.1
     History: [
         16-Feb-2006 1.1.0 "History start" 
         16-Feb-2006 1.2.0 "Fixed a bug with escape command parsing" 
@@ -127,103 +126,19 @@ REBOL [
         29-Jun-2006 2.34.1 "Fixed =span" 
         21-Jul-2006 2.35.1 {=l meant both one-line =left and abbreviation for =link; fixed (now =link can be abbreviated as =li)} 
         21-Jul-2006 2.36.1 "Fixed problem with =table[borderless]" 
-        21-Aug-2006 2.37.1 "Release 2.0i: first public release"
+        21-Aug-2006 2.37.1 "Release 2.0i: first public release" 
+        23-Nov-2006 2.38.1 {Fixed a bug with color names (parse rule must be in correct order)} 
+        23-Nov-2006 2.39.1 {Fixed a bug with combination of some one-line commands on the same line} 
+        23-Nov-2006 2.40.1 {Changed header numbering: added 0, added normalization} 
+        23-Nov-2006 2.41.1 "Added default TOC title setting" 
+        23-Nov-2006 2.42.1 "Merged changes from Qtask" 
+        6-Dec-2006 2.43.1 "Finished documentation of the second stage" 
+        22-Dec-2006 2.44.1 {Fixed a bug with =image without options; changed =:: outside dlist to be indent: 3} 
+        13-Mar-2007 2.45.1 {Fixed a bug with =row[all] and =column[all] not applying to previously defined cells} 
+        6-Apr-2007 2.46.1 "Adding process-image-url hook function"
     ]
 ]
 
-fsm!: context [
-    state: none 
-    tracing: no 
-    initial: none 
-    state-stack: [] 
-    goto-state: func [new-state [block!] retact [paren! none!]] [
-        insert/only insert/only state-stack: tail state-stack :state :retact 
-        state: new-state
-    ] 
-    return-state: has [retact [paren! none!]] [
-        set [state retact] state-stack 
-        state: any [state initial] 
-        if tracing [prin ["return, retact:" mold :retact ""]] 
-        do retact 
-        state-stack: skip clear state-stack -2
-    ] 
-    rewind-state: func [up-to [block!] /local retact stack] [
-        if empty? state-stack [return false] 
-        stack: tail state-stack 
-        retact: make block! 128 
-        until [
-            stack: skip stack -2 
-            append retact stack/2 
-            if same? up-to stack/1 [
-                state: up-to 
-                do retact 
-                state-stack: skip clear stack -2 
-                return true
-            ] 
-            head? stack
-        ] 
-        false
-    ] 
-    event: func [
-        "Process one event" 
-        evt [any-string! set-word!] 
-        /local val ovr retact done?
-    ] [
-        if not block? state [exit] 
-        until [
-            if tracing [print ["*** event" mold evt]] 
-            done?: yes 
-            local: any [find state evt find state [default:]] 
-            if local [
-                parse local [
-                    some [any-string! | set-word!] 
-                    set val opt paren! (if all [:val tracing] [prin [mold :val ""]] do val) [
-                        'continue (if tracing [prin "continue "] done?: no) 
-                        | 
-                        'override set ovr word! (evt: to set-word! ovr if tracing [prin ["override" mold ovr ""]] done?: no) 
-                        | 
-                        none
-                    ] [
-                        set val opt integer! 'return (loop any [val 1] [return-state]) 
-                        | 
-                        'rewind? copy val some word! (
-                            if tracing [prin ["rewind?" mold/only val]] 
-                            if not foreach word val [
-                                if block? get/any word [
-                                    if rewind-state get word [break/return true]
-                                ] 
-                                false
-                            ] [
-                                done?: yes
-                            ]
-                        ) 
-                        | 
-                        set val word! set retact opt paren! (
-                            if block? get/any val [
-                                if tracing [prin ["go to" val "then" mold :retact ""]] 
-                                goto-state get val :retact
-                            ]
-                        ) 
-                        | 
-                        none (done?: yes)
-                    ]
-                ]
-            ] 
-            if tracing [ask ""] 
-            done?
-        ]
-    ] 
-    init: func [
-        "Initialize the state machine" 
-        initial-state [block!]
-    ] [
-        clear state-stack: head state-stack 
-        initial: state: initial-state
-    ] 
-    end: does [
-        foreach [retact state] head reverse head state-stack [do retact]
-    ]
-] 
 match: func [
     "Match a pattern over data" 
     data [block! string!] "Data to match the pattern to" 
@@ -277,7 +192,7 @@ qml-scanner: context [
         some [commands | text]
     ] 
     commands: [
-        any spc newline any spc (stage2 "^/" none) 
+        any spc newline (stage2 "^/" none) 
         | 
         magic-char [
             magic-char (stage2 [text:] magic-char) 
@@ -332,9 +247,13 @@ qml-scanner: context [
     ] 
     txt: none 
     txt-chars: none 
-    text: [copy txt some txt-chars (stage2 [text:] txt)] 
-    mk: cmd: options: csv: none 
     spc: charset " ^-" 
+    text: [
+        copy txt [any spc some txt-chars any [some spc some txt-chars]] (stage2 [text:] txt) 
+        | 
+        copy txt some spc (stage2 [whitespace:] txt)
+    ] 
+    mk: cmd: options: csv: none 
     spc+: charset " ^-^/" 
     cmd-chars: none 
     magic-char: none 
@@ -359,7 +278,7 @@ qml-scanner: context [
         if empty? magic [magic: "="] 
         magic-char: magic 
         cmd-chars: complement charset join " ^-^/[]{}./" first magic-char 
-        txt-chars: complement charset join "^/" first magic-char
+        txt-chars: complement charset join " ^-^/" first magic-char
     ] 
     parse-qml: func [text [string!] magic [string! none!]] [
         set-magic any [magic "="] 
@@ -413,38 +332,34 @@ qml-scanner: context [
         set-word: none 
         color-keyword: [
             "clear" (value: /transparent) | copy value [
-                "aliceblue" | "antiquewhite" | "aqua" | "aquamarine" | "azure" | 
-                "beige" | "bisque" | "black" | "blanchedalmond" | "blue" | 
-                "blueviolet" | "brown" | "burlywood" | "cadetblue" | "chartreuse" | 
-                "chocolate" | "coral" | "cornflowerblue" | "cornsilk" | "crimson" | 
-                "cyan" | "darkblue" | "darkcyan" | "darkgoldenrod" | "darkgray" | 
-                "darkgreen" | "darkkhaki" | "darkmagenta" | "darkolivegreen" | 
-                "darkorange" | "darkorchid" | "darkred" | "darksalmon" | 
-                "darkseagreen" | "darkslateblue" | "darkslategray" | "darkturquoise" | 
-                "darkviolet" | "deeppink" | "deepskyblue" | "dimgray" | 
-                "dodgerblue" | "feldspar" | "firebrick" | "floralwhite" | 
-                "forestgreen" | "fuchsia" | "gainsboro" | "ghostwhite" | "gold" | 
-                "goldenrod" | "gray" | "green" | "greenyellow" | "honeydew" | 
-                "hotpink" | "indianred" | "indigo" | "ivory" | "khaki" | "lavender" | 
-                "lavenderblush" | "lawngreen" | "lemonchiffon" | "lightblue" | 
-                "lightcoral" | "lightcyan" | "lightgoldenrodyellow" | "lightgreen" | 
-                "lightgrey" | "lightpink" | "lightsalmon" | "lightseagreen" | 
-                "lightskyblue" | "lightslateblue" | "lightslategray" | 
-                "lightsteelblue" | "lightyellow" | "lime" | "limegreen" | "linen" | 
-                "magenta" | "maroon" | "mediumaquamarine" | "mediumblue" | 
-                "mediumorchid" | "mediumpurple" | "mediumseagreen" | 
-                "mediumslateblue" | "mediumspringgreen" | "mediumturquoise" | 
-                "mediumvioletred" | "midnightblue" | "mintcream" | "mistyrose" | 
-                "moccasin" | "navajowhite" | "navy" | "oldlace" | "olive" | 
-                "olivedrab" | "orange" | "orangered" | "orchid" | "palegoldenrod" | 
-                "palegreen" | "paleturquoise" | "palevioletred" | "papayawhip" | 
-                "peachpuff" | "peru" | "pink" | "plum" | "powderblue" | "purple" | 
-                "red" | "rosybrown" | "royalblue" | "saddlebrown" | "salmon" | 
-                "sandybrown" | "seagreen" | "seashell" | "sienna" | "silver" | 
-                "skyblue" | "slateblue" | "slategray" | "snow" | "springgreen" | 
-                "steelblue" | "tan" | "teal" | "thistle" | "tomato" | "turquoise" | 
-                "violet" | "violetred" | "wheat" | "white" | "whitesmoke" | "yellow" | 
-                "yellowgreen" | "transparent"
+                "lightgoldenrodyellow" | "mediumspringgreen" | "mediumaquamarine" | 
+                "mediumslateblue" | "mediumturquoise" | "mediumvioletred" | "blanchedalmond" | 
+                "cornflowerblue" | "darkolivegreen" | "lightslateblue" | "lightslategray" | 
+                "lightsteelblue" | "mediumseagreen" | "darkgoldenrod" | "darkslateblue" | 
+                "darkslategray" | "darkturquoise" | "lavenderblush" | "lightseagreen" | 
+                "palegoldenrod" | "paleturquoise" | "palevioletred" | "antiquewhite" | 
+                "darkseagreen" | "lemonchiffon" | "lightskyblue" | "mediumorchid" | 
+                "mediumpurple" | "midnightblue" | "darkmagenta" | "deepskyblue" | 
+                "floralwhite" | "forestgreen" | "greenyellow" | "lightsalmon" | 
+                "lightyellow" | "navajowhite" | "saddlebrown" | "springgreen" | 
+                "yellowgreen" | "transparent" | "aquamarine" | "blueviolet" | "chartreuse" | 
+                "darkorange" | "darkorchid" | "darksalmon" | "darkviolet" | "dodgerblue" | 
+                "ghostwhite" | "lightcoral" | "lightgreen" | "mediumblue" | "papayawhip" | 
+                "powderblue" | "sandybrown" | "whitesmoke" | "aliceblue" | "burlywood" | 
+                "cadetblue" | "chocolate" | "darkgreen" | "darkkhaki" | "firebrick" | 
+                "gainsboro" | "goldenrod" | "indianred" | "lawngreen" | "lightblue" | 
+                "lightcyan" | "lightgrey" | "lightpink" | "limegreen" | "mintcream" | 
+                "mistyrose" | "olivedrab" | "orangered" | "palegreen" | "peachpuff" | 
+                "rosybrown" | "royalblue" | "slateblue" | "slategray" | "steelblue" | 
+                "turquoise" | "violetred" | "cornsilk" | "darkblue" | "darkcyan" | 
+                "darkgray" | "deeppink" | "feldspar" | "honeydew" | "lavender" | "moccasin" | 
+                "seagreen" | "seashell" | "crimson" | "darkred" | "dimgray" | "fuchsia" | 
+                "hotpink" | "magenta" | "oldlace" | "skyblue" | "thistle" | "bisque" | 
+                "indigo" | "maroon" | "orange" | "orchid" | "purple" | "salmon" | "sienna" | 
+                "silver" | "tomato" | "violet" | "yellow" | "azure" | "beige" | "black" | 
+                "brown" | "coral" | "green" | "ivory" | "khaki" | "linen" | "olive" | 
+                "wheat" | "white" | "aqua" | "blue" | "cyan" | "gold" | "gray" | "lime" | 
+                "navy" | "peru" | "pink" | "plum" | "snow" | "teal" | "red" | "tan"
             ] (value: to refinement! value)
         ] 
         tuple: [
@@ -802,27 +717,13 @@ qml-scanner: context [
     default-column: 
     default-cell: 
     default-box: 
-    default-image: none 
+    default-image: 
+    default-toc-title: none 
     default-data: context [name: "csv" index: none] 
     default-repeat: [csv in csv] 
-    merge-style: func [old new /copy /local val] [
-        if object? new [
-            either object? old [
-                if copy [old: make old []] 
-                foreach word next first new [
-                    if val: get in new word [
-                        set in old word val
-                    ]
-                ]
-            ] [
-                old: new
-            ]
-        ] 
-        old
-    ] 
     set-defaults: func [defaults /local w] [
         default-number-style: default-table: default-row: default-column: 
-        default-cell: default-box: default-image: none 
+        default-cell: default-box: default-image: default-toc-title: none 
         if block? defaults [
             foreach [cmd opts] defaults [
                 if w: select [
@@ -832,7 +733,8 @@ qml-scanner: context [
                     "column" default-column 
                     "cell" default-cell 
                     "box" default-box 
-                    "image" default-image
+                    "image" default-image 
+                    "toc-title" default-toc-title
                 ] cmd [
                     set w parse-command-options cmd opts
                 ]
@@ -851,70 +753,11 @@ qml-scanner: context [
     ] 
     stage2-ctx: context [
         cmd: opts: none 
-        block-stack: [] 
-        inline-stack: [] 
-        special: none 
-        end-inline: does [
-            if special [close-special special] 
-            close-repeat/only 
-            temp-close-inline 
-            stage3 "^/" none
-        ] 
-        open-special: func [cmd opts] [
-            if special [close-special special] 
-            special: join cmd "." 
-            temp-close-inline 
-            stage3 cmd opts 
-            reopen-inline
-        ] 
-        close-special: func [cmd] [
-            if special = cmd [
-                temp-close-inline 
-                stage3 cmd none 
-                reopen-inline 
-                special: none
-            ]
-        ] 
-        close-all-block: does [
-            block-stack: skip tail block-stack -2 
-            while [not empty? block-stack] [
-                stage3 join block-stack/1 "." none 
-                block-stack: skip clear block-stack -2
-            ]
-        ] 
-        reopen-inline: does [
-            foreach [cmd opts] inline-stack [
-                stage3 cmd opts
-            ]
-        ] 
-        remove-last-inline: has [cmd] [
-            either empty? inline-stack [
-                if find ["left" "right" "center" "justify"] cmd: pick tail block-stack -2 [
-                    stage3 join cmd "." none 
-                    clear skip tail block-stack -2
-                ]
-            ] [
-                clear skip tail inline-stack -2
-            ]
-        ] 
-        remove-all-inline: has [cmd] [
-            clear inline-stack 
-            block-stack: tail block-stack 
-            while [find ["left" "right" "center" "justify"] cmd: pick block-stack -2] [
-                stage3 join cmd "." none 
-                block-stack: skip block-stack -2
-            ] 
-            block-stack: head clear block-stack
-        ] 
         open-block: func [cmd opts] [
             stage3 cmd opts 
             insert/only insert tail block-stack cmd opts
         ] 
-        remove-inline: func [cmd] [
-            if cmd: find/skip inline-stack cmd 2 [
-                remove/part cmd 2
-            ]
-        ] 
+        block-stack: [] 
         close-block: func [cmd /upto noclosecmd /local] [
             remove back tail cmd: copy cmd 
             if local: find/skip/last block-stack cmd 2 [
@@ -931,6 +774,46 @@ qml-scanner: context [
                     block-stack/1 = cmd
                 ] 
                 block-stack: head clear block-stack
+            ]
+        ] 
+        remove-all-inline: has [cmd] [
+            clear inline-stack 
+            block-stack: tail block-stack 
+            while [find ["left" "right" "center" "justify"] cmd: pick block-stack -2] [
+                stage3 join cmd "." none 
+                block-stack: skip block-stack -2
+            ] 
+            block-stack: head clear block-stack
+        ] 
+        inline-stack: [] 
+        close-all-block: does [
+            block-stack: skip tail block-stack -2 
+            while [not empty? block-stack] [
+                stage3 join block-stack/1 "." none 
+                block-stack: skip clear block-stack -2
+            ]
+        ] 
+        remove-last-inline: has [cmd] [
+            either empty? inline-stack [
+                if find ["left" "right" "center" "justify"] cmd: pick tail block-stack -2 [
+                    stage3 join cmd "." none 
+                    clear skip tail block-stack -2
+                ]
+            ] [
+                clear skip tail inline-stack -2
+            ]
+        ] 
+        reopen-inline: does [
+            foreach [cmd opts] inline-stack [
+                stage3 cmd opts
+            ]
+        ] 
+        add-inline: func [cmd opts] [
+            insert/only insert tail inline-stack cmd opts
+        ] 
+        remove-inline: func [cmd] [
+            if cmd: find/skip inline-stack cmd 2 [
+                remove/part cmd 2
             ]
         ] 
         close-all-inline: does [
@@ -951,13 +834,7 @@ qml-scanner: context [
             ] 
             block-stack: head clear block-stack
         ] 
-        open-inline: func [cmd opts] [
-            stage3 cmd opts 
-            insert/only insert tail inline-stack cmd opts
-        ] 
-        add-inline: func [cmd opts] [
-            insert/only insert tail inline-stack cmd opts
-        ] 
+        close-inline?: no 
         close-last-inline: has [cmd] [
             if empty? inline-stack [
                 if special [
@@ -976,6 +853,35 @@ qml-scanner: context [
             stage3 join cmd "." none 
             clear skip tail inline-stack -2
         ] 
+        open-special: func [cmd opts] [
+            if special [close-special special] 
+            special: join cmd "." 
+            temp-close-inline 
+            stage3 cmd opts 
+            reopen-inline
+        ] 
+        special: none 
+        close-special: func [cmd] [
+            if special = cmd [
+                temp-close-inline 
+                stage3 cmd none 
+                reopen-inline 
+                special: none
+            ]
+        ] 
+        temp-close-inline: does [
+            if empty? inline-stack [exit] 
+            inline-stack: tail inline-stack 
+            until [
+                inline-stack: skip inline-stack -2 
+                stage3 join inline-stack/1 "." none 
+                head? inline-stack
+            ]
+        ] 
+        open-inline: func [cmd opts] [
+            stage3 cmd opts 
+            insert/only insert tail inline-stack cmd opts
+        ] 
         close-inline: func [cmd] [
             remove back tail cmd: copy cmd 
             if find/skip inline-stack cmd 2 [
@@ -992,16 +898,6 @@ qml-scanner: context [
                 inline-stack: head inline-stack
             ]
         ] 
-        temp-close-inline: does [
-            if empty? inline-stack [exit] 
-            inline-stack: tail inline-stack 
-            until [
-                inline-stack: skip inline-stack -2 
-                stage3 join inline-stack/1 "." none 
-                head? inline-stack
-            ]
-        ] 
-        close-inline?: no 
         close-repeat: func [/only] [
             either find/skip inline-stack "repeat" 2 [
                 inline-stack: tail inline-stack 
@@ -1021,12 +917,18 @@ qml-scanner: context [
                 ]
             ]
         ] 
+        end-inline: does [
+            if special [close-special special] 
+            close-repeat/only 
+            temp-close-inline 
+            stage3 "^/" none
+        ] 
         in-block: [
-            "'" "’" "`" {"} in-line-comment 
+            {"} "'" "`" "&#145;" "&#146;" in-line-comment 
             ";" "comment" "rem" in-comment 
             default: (stage3 cmd opts) 
-            "word" (stage3 ":" opts) 
-            "def" (stage3 "::" opts) 
+            "word" (stage3 ":" opts) in-inline 
+            "def" (stage3 "::" opts) in-inline 
             "example" "html" "rebol" "makedoc" "csv" (stage3 cmd opts) eat-one-newline 
             "table" "center" "left" "justify" "right" "repeat" (open-block cmd opts) eat-one-newline 
             "box" (open-block cmd opts) 
@@ -1037,6 +939,8 @@ qml-scanner: context [
             " " (remove-last-inline) eat-one-newline 
             "," (remove-all-inline) eat-one-newline 
             "" "link" "anchor" "a" "li" "image" "data" text: (reopen-inline) continue in-inline 
+            "c" "1" "1'" "2" "2'" "3" "3'" "*" "**" "#" "##" ">" ":" "::" 
+            "r" "l" "j" "o" "x" "2&#146;" "1&#146;" "3&#146;" "4" "5" "6" (stage3 cmd opts reopen-inline) in-inline 
             "b" "bold" (add-inline "b" opts) eat-one-newline 
             "u" "underline" (add-inline "u" opts) eat-one-newline 
             "i" "italics" "italic" (add-inline "i" opts) eat-one-newline 
@@ -1051,7 +955,7 @@ qml-scanner: context [
             "cell" (close-block/upto "cell." "table" open-block cmd opts) eat-one-newline
         ] 
         in-inline: [
-            "'" "’" "`" {"} in-line-comment 
+            {"} "'" "`" "&#145;" "&#146;" in-line-comment 
             ";" "comment" "rem" in-comment 
             default: (stage3 cmd opts) 
             "." (close-all-inline stage3 "^/" none) continue return 
@@ -1079,7 +983,7 @@ qml-scanner: context [
             ">" ":" "::" "word" "def" "example" "toc" "cell" "cell." 
             "row" "column" "left" "right" "left." "right." "r" "l" "span" 
             "html" "rebol" "makedoc" "justify" "j" "justify." "toc." 
-            "o" "x" "2’" "1’" "3’" "row." "column." "4" "5" "6" (end-inline) continue return 
+            "o" "x" "2&#146;" "1&#146;" "3&#146;" "row." "column." "4" "5" "6" (end-inline) continue return 
             close-inline: return
         ] 
         in-line-comment: [
@@ -1103,21 +1007,6 @@ qml-scanner: context [
         stage2-fsm/event "." 
         stage2-fsm/end
     ] 
-    merge-style: func [old new /copy /local val] [
-        if object? new [
-            either object? old [
-                if copy [old: make old []] 
-                foreach word next first new [
-                    if val: get in new word [
-                        set in old word val
-                    ]
-                ]
-            ] [
-                old: new
-            ]
-        ] 
-        old
-    ] 
     stage3: func [cmd opts] [
         if block? cmd [cmd: first cmd] 
         stage3-ctx/cmd: cmd 
@@ -1125,28 +1014,13 @@ qml-scanner: context [
         stage3-fsm/event cmd
     ] 
     stage3-fsm: make fsm! [] 
-    out: [] 
-    init-stage3: does [
-        clear out 
-        clear stage3-ctx/blocks 
-        clear stage3-ctx/vars 
-        clear stage3-ctx/anchors 
-        stage3-ctx/local-vars: copy [[]] 
-        stage3-ctx/csvid: stage3-ctx/tabid: 1 
-        insert out 'qml 
-        stage3-fsm/init stage3-ctx/initial
-    ] 
-    end-stage3: does [
-        stage3-fsm/end 
-        rewrite out rewrite-rules 
-        make-toc out 
-        set-enum-counts out 
-        out
-    ] 
     stage3-ctx: context [
         cmd: opts: none 
         emit: func [val] [
             repend out val
+        ] 
+        inherit: func [parent-state new-directives] [
+            append new-directives parent-state
         ] 
         blocks: [] 
         open-block: func [name opts /only] [
@@ -1163,9 +1037,6 @@ qml-scanner: context [
             out: last blocks 
             remove back tail blocks
         ] 
-        inherit: func [parent-state new-directives] [
-            append new-directives parent-state
-        ] 
         make-style: func [obj /ignore block /local] [
             local: make block! length? obj: third obj 
             block: any [block []] 
@@ -1174,13 +1045,8 @@ qml-scanner: context [
             ] 
             local
         ] 
-        common: [
-            default: (emit [reduce ['command cmd opts]]) 
-            "." rewind? initial
-        ] 
-        anchors: [] 
-        vars: [] 
         tabid: 1 
+        vars: [] 
         open-table: func [opts] [
             if not object? opts [
                 opts: refinements/get-obj "table"
@@ -1192,47 +1058,6 @@ qml-scanner: context [
             ] 
             open-block/only 'table-proto opts 
             insert insert tail vars opts/name context [type: 'table-proto name: opts/name contents: out]
-        ] 
-        in-block: initial: inherit common [
-            "" "link" "anchor" "image" "b" "i" "f" "data" text: (open-block 'para none) continue in-para (close-block) 
-            after-para: () 
-            "^/" (emit [[para]]) 
-            "-" (emit [[hrule]]) 
-            "1" (open-block 'header1 none) in-para (close-block) 
-            "2" (open-block 'header2 none) in-para (close-block) 
-            "3" (open-block 'header3 none) in-para (close-block) 
-            "4" (open-block 'header4 none) in-para (close-block) 
-            "5" (open-block 'header5 none) in-para (close-block) 
-            "6" (open-block 'header6 none) in-para (close-block) 
-            "1'" "1’" (open-block 'header1* none) in-para (close-block) 
-            "2'" "2’" (open-block 'header2* none) in-para (close-block) 
-            "3'" "3’" (open-block 'header3* none) in-para (close-block) 
-            "*" "**" (open-block 'bullets none) continue in-ulist (close-block) 
-            "#" "##" (open-block 'enum none) continue in-olist (close-block) 
-            "o" "x" (open-block 'checks none) continue in-checklist (close-block) 
-            ">" (open-block 'para compose [indent: (opts)]) in-para (close-block) 
-            "::" (open-block 'para [indent: 2]) in-item (close-block) 
-            ":" (open-block 'definitions none) continue in-dlist (close-block) 
-            "box" (open-block 'box merge-style/copy default-box opts) in-box (close-block) 
-            "toc" (open-block 'section opts open-block 'toc none) in-toc (close-block) 
-            "table" (open-table opts) in-table (close-block) 
-            "c" (open-block 'para [text-halign: center]) in-para (close-block) 
-            "center" (open-block 'center none) in-center (close-block) 
-            "l" (open-block 'para [text-halign: left]) in-para (close-block) 
-            "left" (open-block 'left none) in-left (close-block) 
-            "r" (open-block 'para [text-halign: right]) in-para (close-block) 
-            "right" (open-block 'right none) in-right (close-block) 
-            "j" (open-block 'para [text-halign: justify]) in-para (close-block) 
-            "justify" (open-block 'justify none) in-just (close-block) 
-            "example" "html" "rebol" "makedoc" (emit [reduce ['escape cmd opts]]) 
-            "csv" (handle-csv opts) 
-            "repeat" (open-block 'repeat any [opts default-repeat]) in-repeat (close-block) 
-            "center." continue rewind? in-center 
-            "left." continue rewind? in-left 
-            "right." continue rewind? in-right 
-            "justify." continue rewind? in-just 
-            "box." continue rewind? in-box 
-            "table." continue rewind? in-table
         ] 
         csvid: 1 
         handle-csv: func [data] [
@@ -1257,165 +1082,7 @@ qml-scanner: context [
                 close-block
             ]
         ] 
-        in-center: inherit in-block [
-            "center." override after-para return
-        ] 
-        in-left: inherit in-block [
-            "left." override after-para return
-        ] 
-        in-right: inherit in-block [
-            "right." override after-para return
-        ] 
-        in-just: inherit in-block [
-            "justify." override after-para return
-        ] 
-        in-repeat: inherit in-block [
-            "repeat." override after-para return
-        ] 
-        in-para: inherit common [
-            text: (emit opts) 
-            "^/" override after-para return 
-            "b" (open-block 'bold none) in-bold (close-block) 
-            "i" (open-block 'italic none) in-italic (close-block) 
-            "s" (open-block 'strike none) in-strike (close-block) 
-            "" (emit [reduce ['qlink opts]]) 
-            "link" (open-block 'link-proto opts) in-link (close-block) 
-            "f" (open-block 'font opts) in-font-inline (close-block) 
-            "image" (emit [reduce ['image 'opts make-style merge-style/copy default-image opts]]) 
-            "anchor" (open-block 'anchor opts if opts [insert/only insert tail anchors opts out]) in-anchor (close-block) 
-            "data" (emit [reduce ['data make-style merge-style/copy default-data opts]]) 
-            "repeat" (open-block 'repeat any [opts default-repeat]) in-repeat-inline (close-block)
-        ] 
-        in-repeat-inline: inherit in-para [
-            "repeat." return
-        ] 
-        in-link: inherit in-para [
-            "link." return
-        ] 
-        in-anchor: inherit in-para [
-            "anchor." return
-        ] 
-        in-font-inline: inherit in-para [
-            "f." return
-        ] 
-        in-bold: inherit in-para [
-            "b" in-bold 
-            "b." return
-        ] 
-        in-italic: inherit in-para [
-            "i" in-italic 
-            "i." return
-        ] 
-        in-strike: inherit in-para [
-            "s" in-strike 
-            "s." return
-        ] 
-        in-underline: inherit in-para [
-            "u" in-underline 
-            "u." return
-        ] 
-        in-dlist: [
-            ":" (open-block 'term none) in-item (close-block) 
-            "::" (open-block 'desc none) in-item (close-block) 
-            after-para: () 
-            default: continue return
-        ] 
-        in-checklist: [
-            "o" (open-block 'check compose [checked: (no)]) in-item (close-block) 
-            "x" (open-block 'check compose [checked: (yes)]) in-item (close-block) 
-            after-para: () 
-            default: continue return
-        ] 
-        in-ulist: [
-            "*" (open-block 'item if all [opts opts: attempt [to integer! opts]] [compose [type: (opts)]]) in-item (close-block) 
-            "**" (open-block 'bullets none) continue in-ulist2 (close-block) 
-            "##" (open-block 'enum none) continue in-olist2 (close-block) 
-            after-para: () 
-            default: continue return
-        ] 
-        in-olist: [
-            "#" (open-block 'item if all [opts opts: attempt [to integer! opts]] [compose [force: (opts)]]) in-item (close-block) 
-            "##" (open-block 'enum none) continue in-olist2 (close-block) 
-            "**" (open-block 'bullets none) continue in-ulist2 (close-block) 
-            after-para: () 
-            default: continue return
-        ] 
-        in-ulist2: [
-            "**" (open-block 'item if all [opts opts: attempt [to integer! opts]] [compose [type: (opts)]]) in-item (close-block) 
-            after-para: () 
-            default: continue return
-        ] 
-        in-olist2: [
-            "##" (open-block 'item if all [opts opts: attempt [to integer! opts]] [compose [force: (opts)]]) in-item (close-block) 
-            after-para: () 
-            default: continue return
-        ] 
-        in-item: in-para 
-        in-box: [
-            "^/" after-para: box-contents 
-            default: continue box-contents 
-            "" "link" "b" "i" "f" "s" "anchor" "data" "image" text: (open-block 'title none) continue in-para (close-block) 
-            "box." override after-para return
-        ] 
-        box-contents: inherit in-block [
-            "box." continue return
-        ] 
-        in-toc: [
-            "^/" after-para: (close-block) in-toc2 
-            default: (close-block) continue in-toc2 
-            "" "link" "b" "i" "f" "s" "anchor" "data" "image" text: (open-block 'title none) continue in-para (close-block) 
-            "toc." (close-block) override after-para return
-        ] 
-        in-toc2: inherit in-block [
-            "toc." override after-para 2 return
-        ] 
-        in-table: inherit common [
-            "row" (emit ['row opts]) 
-            "column" (emit ['column opts]) 
-            "row." "column." (emit 'return) 
-            "cell" (open-block/only 'cell opts) in-cell-block (close-block) 
-            "table." return 
-            "span" (emit ['span opts]) 
-            default: (open-block 'cell none) continue in-cell (close-block) 
-            "repeat" (open-block 'repeat any [opts default-repeat]) in-table-repeat (close-block)
-        ] 
-        in-table-repeat: inherit in-table [
-            "repeat." return
-        ] 
-        in-cell: inherit in-block [
-            "*" (
-                open-block 'bullets none 
-                open-block 'item if all [opts opts: attempt [to integer! opts]] [compose [type: (opts)]]
-            ) in-item (close-block close-block) 
-            "**" (
-                open-block 'bullets none 
-                open-block 'bullets none 
-                open-block 'item if all [opts opts: attempt [to integer! opts]] [compose [type: (opts)]]
-            ) in-item (close-block close-block close-block) 
-            "#" (
-                open-block 'enum none 
-                open-block 'item if all [opts opts: attempt [to integer! opts]] [compose [force: (opts)]]
-            ) in-item (close-block close-block) 
-            "##" (
-                open-block 'enum none 
-                open-block 'enum none 
-                open-block 'item if all [opts opts: attempt [to integer! opts]] [compose [force: (opts)]]
-            ) in-item (close-block close-block close-block) 
-            "::" (open-block 'para [indent: 2]) in-item (close-block) 
-            ":" (open-block 'definitions none) override define in-cell-dlist (close-block) 
-            "o" (open-block 'checks none open-block 'check no) in-item (close-block close-block) 
-            "x" (open-block 'checks none open-block 'check yes) in-item (close-block close-block) 
-            after-para: "^/" return
-        ] 
-        in-cell-block: inherit in-block [
-            "cell." return
-        ] 
-        in-cell-dlist: [
-            define: (open-block 'term none) in-item (close-block) 
-            "::" (open-block 'desc none) in-item (close-block) 
-            after-para: () 
-            default: continue 2 return
-        ] 
+        anchors: [] 
         header?: func [type col row] [
             switch type [
                 horiz [row = 1] 
@@ -1601,7 +1268,7 @@ qml-scanner: context [
                 style
             ]
         ] 
-        add-row: func [table-state args /local pos] [
+        add-row: func [table-state args /local pos row] [
             table-state/savedir: table-state/dir 
             if object? args [
                 pos: args/position 
@@ -1619,10 +1286,17 @@ qml-scanner: context [
                 ]
             ] 
             args: merge-style/copy default-row args 
-            make-row table-state table-state/curpos args 
+            row: make-row table-state table-state/curpos args 
+            if all [row/style row/style/all] [
+                foreach cell row/contents [
+                    if cell [
+                        cell/style: make-cell-style table-state cell/style row none
+                    ]
+                ]
+            ] 
             table-state/dir: 1x0
         ] 
-        add-col: func [table-state args /local pos] [
+        add-col: func [table-state args /local pos col cell] [
             table-state/savedir: table-state/dir 
             if object? args [
                 pos: args/position 
@@ -1640,7 +1314,16 @@ qml-scanner: context [
                 ]
             ] 
             args: merge-style/copy default-column args 
-            make-col table-state table-state/curpos args 
+            col: make-col table-state table-state/curpos args 
+            if all [col col/all] [
+                foreach row table-state/table [
+                    if row [
+                        if cell: pick row/contents table-state/curpos/x [
+                            cell/style: make-cell-style table-state cell/style none col
+                        ]
+                    ]
+                ]
+            ] 
             table-state/dir: 0x1
         ] 
         table-go-back: func [table-state] [
@@ -1840,6 +1523,224 @@ qml-scanner: context [
                 table-state/size: max table-state/size args/end
             ]
         ] 
+        common: [
+            default: (emit [reduce ['command cmd opts]]) 
+            "." rewind? initial
+        ] 
+        in-block: initial: inherit common [
+            "" "link" "anchor" "image" "b" "i" "s" "f" "data" text: (open-block 'para none) continue in-para (close-block) 
+            after-para: () 
+            whitespace: () 
+            "^/" (emit [[para]]) 
+            "-" (emit [[hrule]]) 
+            "1" (open-block 'header1 none) in-para (close-block) 
+            "2" (open-block 'header2 none) in-para (close-block) 
+            "3" (open-block 'header3 none) in-para (close-block) 
+            "4" (open-block 'header4 none) in-para (close-block) 
+            "5" (open-block 'header5 none) in-para (close-block) 
+            "6" (open-block 'header6 none) in-para (close-block) 
+            "1'" "1&#146;" (open-block 'header1* none) in-para (close-block) 
+            "2'" "2&#146;" (open-block 'header2* none) in-para (close-block) 
+            "3'" "3&#146;" (open-block 'header3* none) in-para (close-block) 
+            "*" "**" (open-block 'bullets none) continue in-ulist (close-block) 
+            "#" "##" (open-block 'enum none) continue in-olist (close-block) 
+            "o" "x" (open-block 'checks none) continue in-checklist (close-block) 
+            ">" (open-block 'para compose [indent: (opts)]) in-para (close-block) 
+            "::" (open-block 'para [indent: 3]) in-para (close-block) 
+            ":" (open-block 'definitions none) continue in-dlist (close-block) 
+            "box" (open-block 'box merge-style/copy default-box opts) in-box (close-block) 
+            "toc" (open-block 'section opts open-block 'toc none) in-toc (close-block) 
+            "table" (open-table opts) in-table (close-block) 
+            "c" (open-block 'para [text-halign: center]) in-para (close-block) 
+            "center" (open-block 'center none) in-center (close-block) 
+            "l" (open-block 'para [text-halign: left]) in-para (close-block) 
+            "left" (open-block 'left none) in-left (close-block) 
+            "r" (open-block 'para [text-halign: right]) in-para (close-block) 
+            "right" (open-block 'right none) in-right (close-block) 
+            "j" (open-block 'para [text-halign: justify]) in-para (close-block) 
+            "justify" (open-block 'justify none) in-just (close-block) 
+            "example" "html" "rebol" "makedoc" (emit [reduce ['escape cmd opts]]) 
+            "csv" (handle-csv opts) 
+            "repeat" (open-block 'repeat any [opts default-repeat]) in-repeat (close-block) 
+            "center." continue rewind? in-center 
+            "left." continue rewind? in-left 
+            "right." continue rewind? in-right 
+            "justify." continue rewind? in-just 
+            "box." continue rewind? in-box 
+            "table." continue rewind? in-table
+        ] 
+        in-center: inherit in-block [
+            "center." override after-para return
+        ] 
+        in-left: inherit in-block [
+            "left." override after-para return
+        ] 
+        in-right: inherit in-block [
+            "right." override after-para return
+        ] 
+        in-just: inherit in-block [
+            "justify." override after-para return
+        ] 
+        in-repeat: inherit in-block [
+            "repeat." override after-para return
+        ] 
+        in-para: inherit common [
+            text: whitespace: (emit opts) 
+            "^/" override after-para return 
+            "b" (open-block 'bold none) in-bold (close-block) 
+            "i" (open-block 'italic none) in-italic (close-block) 
+            "s" (open-block 'strike none) in-strike (close-block) 
+            "" (emit [reduce ['qlink opts]]) 
+            "link" (open-block 'link-proto opts) in-link (close-block) 
+            "f" (open-block 'font opts) in-font (close-block) 
+            "image" (
+                if opts [
+                    opts: merge-style/copy default-image opts 
+                    if opts/src [opts/src: process-image-url opts/src] 
+                    emit [reduce ['image 'opts make-style opts]]
+                ]
+            ) 
+            "anchor" (open-block 'anchor opts if opts [insert/only insert tail anchors opts out]) in-anchor (close-block) 
+            "data" (emit [reduce ['data make-style merge-style/copy default-data opts]]) 
+            "repeat" (open-block 'repeat any [opts default-repeat]) in-repeat-inline (close-block)
+        ] 
+        in-repeat-inline: inherit in-para [
+            "repeat." return
+        ] 
+        in-link: inherit in-para [
+            "link." return
+        ] 
+        in-anchor: inherit in-para [
+            "anchor." return
+        ] 
+        in-font: inherit in-para [
+            "f." return
+        ] 
+        in-bold: inherit in-para [
+            "b" in-bold 
+            "b." return
+        ] 
+        in-italic: inherit in-para [
+            "i" in-italic 
+            "i." return
+        ] 
+        in-strike: inherit in-para [
+            "s" in-strike 
+            "s." return
+        ] 
+        in-underline: inherit in-para [
+            "u" in-underline 
+            "u." return
+        ] 
+        in-dlist: [
+            ":" (open-block 'term none) in-para (close-block) 
+            "::" (open-block 'desc none) in-para (close-block) 
+            after-para: () 
+            default: continue return
+        ] 
+        in-checklist: [
+            "o" (open-block 'check compose [checked: (no)]) in-para (close-block) 
+            "x" (open-block 'check compose [checked: (yes)]) in-para (close-block) 
+            after-para: () 
+            default: continue return
+        ] 
+        in-ulist: [
+            "*" (open-block 'item if all [opts opts: attempt [to integer! opts]] [compose [type: (opts)]]) in-para (close-block) 
+            "**" (open-block 'bullets none) continue in-ulist2 (close-block) 
+            "##" (open-block 'enum none) continue in-olist2 (close-block) 
+            after-para: () 
+            default: continue return
+        ] 
+        in-olist: [
+            "#" (open-block 'item if all [opts opts: attempt [to integer! opts]] [compose [force: (opts)]]) in-para (close-block) 
+            "##" (open-block 'enum none) continue in-olist2 (close-block) 
+            "**" (open-block 'bullets none) continue in-ulist2 (close-block) 
+            after-para: () 
+            default: continue return
+        ] 
+        in-ulist2: [
+            "**" (open-block 'item if all [opts opts: attempt [to integer! opts]] [compose [type: (opts)]]) in-para (close-block) 
+            after-para: () 
+            default: continue return
+        ] 
+        in-olist2: [
+            "##" (open-block 'item if all [opts opts: attempt [to integer! opts]] [compose [force: (opts)]]) in-para (close-block) 
+            after-para: () 
+            default: continue return
+        ] 
+        in-box: [
+            "^/" after-para: box-contents 
+            "" "link" "b" "i" "f" "s" "anchor" "data" "image" text: (open-block 'title none) continue in-para (close-block) 
+            "box." override after-para return 
+            default: continue box-contents
+        ] 
+        box-contents: inherit in-block [
+            "box." continue return
+        ] 
+        in-toc: [
+            "^/" (
+                if default-toc-title [
+                    open-block 'title none 
+                    emit default-toc-title 
+                    close-block
+                ] 
+                close-block
+            ) in-toc2 
+            after-para: (close-block) in-toc2 
+            "" "link" "b" "i" "f" "s" "anchor" "data" "image" text: (open-block 'title none) continue in-para (close-block) 
+            "toc." (close-block) override after-para return 
+            default: (close-block) continue in-toc2
+        ] 
+        in-toc2: inherit in-block [
+            "toc." override after-para 2 return
+        ] 
+        in-table: inherit common [
+            "row" (emit ['row opts]) 
+            "column" (emit ['column opts]) 
+            "row." "column." (emit 'return) 
+            "cell" (open-block/only 'cell opts) in-cell-block (close-block) 
+            "table." return 
+            "span" (emit ['span opts]) 
+            default: (open-block 'cell none) continue in-cell (close-block) 
+            "repeat" (open-block 'repeat any [opts default-repeat]) in-table-repeat (close-block)
+        ] 
+        in-cell-block: inherit in-block [
+            "cell." return
+        ] 
+        in-cell: inherit in-block [
+            "*" (
+                open-block 'bullets none 
+                open-block 'item if all [opts opts: attempt [to integer! opts]] [compose [type: (opts)]]
+            ) in-para (close-block close-block) 
+            "**" (
+                open-block 'bullets none 
+                open-block 'bullets none 
+                open-block 'item if all [opts opts: attempt [to integer! opts]] [compose [type: (opts)]]
+            ) in-para (close-block close-block close-block) 
+            "#" (
+                open-block 'enum none 
+                open-block 'item if all [opts opts: attempt [to integer! opts]] [compose [force: (opts)]]
+            ) in-para (close-block close-block) 
+            "##" (
+                open-block 'enum none 
+                open-block 'enum none 
+                open-block 'item if all [opts opts: attempt [to integer! opts]] [compose [force: (opts)]]
+            ) in-para (close-block close-block close-block) 
+            "::" (open-block 'para [indent: 2]) in-para (close-block) 
+            ":" (open-block 'definitions none) override define in-cell-dlist (close-block) 
+            "o" (open-block 'checks none open-block 'check no) in-para (close-block close-block) 
+            "x" (open-block 'checks none open-block 'check yes) in-para (close-block close-block) 
+            after-para: "^/" return
+        ] 
+        in-table-repeat: inherit in-table [
+            "repeat." return
+        ] 
+        in-cell-dlist: [
+            define: (open-block 'term none) in-para (close-block) 
+            "::" (open-block 'desc none) in-para (close-block) 
+            after-para: () 
+            default: continue 2 return
+        ] 
         eval-qlink: func [target /local a] [
             either a: select anchors target [
                 compose/deep [alink opts [target: (target)] (skip a 3)]
@@ -2033,6 +1934,39 @@ qml-scanner: context [
             ]
         ]
     ] 
+    out: [] 
+    init-stage3: does [
+        clear out 
+        clear stage3-ctx/blocks 
+        clear stage3-ctx/vars 
+        clear stage3-ctx/anchors 
+        stage3-ctx/local-vars: copy [[]] 
+        stage3-ctx/csvid: stage3-ctx/tabid: 1 
+        insert out 'qml 
+        stage3-fsm/init stage3-ctx/initial
+    ] 
+    end-stage3: does [
+        stage3-fsm/end 
+        rewrite out rewrite-rules 
+        make-toc out 
+        set-enum-counts out 
+        out
+    ] 
+    merge-style: func [old new /copy /local val] [
+        if object? new [
+            either object? old [
+                if copy [old: make old []] 
+                foreach word next first new [
+                    if val: get in new word [
+                        set in old word val
+                    ]
+                ]
+            ] [
+                old: new
+            ]
+        ] 
+        old
+    ] 
     rewrite-rules: use [x y z] [[['table-proto ['opts set x skip | (x: none)] y: to end] [(stage3-ctx/generate-table x y)] [into ['hidden-table]] [] [into ['repeat 'opts set x block! into ['enum y: to end]]] [[enum [repeat opts [(x)] (y)]]] [into ['repeat 'opts set x block! into ['bullets y: to end]]] [[bullets [repeat opts [(x)] (y)]]] [into ['repeat 'opts set x block! y: to end]] [(stage3-ctx/eval-repeat x y)] [into ['data none!]] [] [into ['data set x block!]] [(stage3-ctx/eval-data x)] [into ['qlink none!]] [] ['qlink set x string!] [(stage3-ctx/eval-qlink x)] ['link-proto 'opts set x url!] [link opts [target: (x)]] ['link-proto 'opts set x string!] [(stage3-ctx/eval-link x)] ['anchor 'opts set x string!] [anchor opts [name: (x)]] [y: into ['cell-if opt ['opts skip] opt ['span skip] opt ['header] x: to end]] [(either 'row = first head y [y/1/1: 'cell copy/part y 1] [x])] [into [x: 'para 'opts set z block! any [y: into [block-level to end] :y break | skip] into [block-level to end] to end]] [[(copy/part x y)] (copy/part y 1) [para opts [(z)] (next y)]] [into [x: 'para any [y: into [block-level to end] :y break | skip] into [block-level to end] to end]] [[(copy/part x y)] (copy/part y 1) [para (next y)]] [y: ['para | 'item] opt ['opts skip] any [z: into ['para to end] :z break | skip] into ['para to end] to end] [(
                     rewrite copy y [[into ['para 'opts set x block! y: to end]] [[font opts [(x)] (y)]] [into ['para opt ['opts skip] y: to end]] [(y)]]
                 )] ['box ['opts set x block! | (x: [])] into ['title y: to end] end] [box opts [(x)] [para (y)]] [into ['bold]] [] [into ['italic]] [] [into ['strike]] [] [into ['font opt ['opts skip]]] [] [into ['font x: [block! | string!] to end]] [(x)] ['font 'opts set x block! into ['bold y: to end] end] [font opts [(x) bold: (true)] (y)] ['font 'opts set x block! into ['italic y: to end] end] [font opts [(x) italic: (true)] (y)] ['bold into ['font 'opts set x block! y: to end] end] [font opts [(x) bold: (true)] (y)] ['italic into ['font 'opts set x block! y: to end] end] [font opts [(x) italic: (true)] (y)] ['link 'opts set x block! into ['font 'opts set y block! z: to end] end] [link opts [(x) (y)] (z)] ['alink 'opts set x block! into ['font 'opts set y block! z: to end] end] [alink opts [(x) (y)] (z)] ['anchor 'opts set x block! into ['font 'opts set y block! z: to end] end] [anchor opts [(x) (y)] (z)] ['para ['opts set x block! | (x: [])] into ['font 'opts set y block! z: to end] end] [para opts [(x) (y)] (z)] ['header1 ['opts set x block! | (x: [])] into ['font 'opts set y block! z: to end] end] [header1 opts [(x) (y)] (z)] ['header1* ['opts set x block! | (x: [])] into ['font 'opts set y block! z: to end] end] [header1* opts [(x) (y)] (z)] ['header2 ['opts set x block! | (x: [])] into ['font 'opts set y block! z: to end] end] [header2 opts [(x) (y)] (z)] ['header2* ['opts set x block! | (x: [])] into ['font 'opts set y block! z: to end] end] [header2* opts [(x) (y)] (z)] ['header3 ['opts set x block! | (x: [])] into ['font 'opts set y block! z: to end] end] [header3 opts [(x) (y)] (z)] ['header3* ['opts set x block! | (x: [])] into ['font 'opts set y block! z: to end] end] [header3* opts [(x) (y)] (z)] ['header4 ['opts set x block! | (x: [])] into ['font 'opts set y block! z: to end] end] [header4 opts [(x) (y)] (z)] ['header5 ['opts set x block! | (x: [])] into ['font 'opts set y block! z: to end] end] [header5 opts [(x) (y)] (z)] ['header6 ['opts set x block! | (x: [])] into ['font 'opts set y block! z: to end] end] [header6 opts [(x) (y)] (z)] ['item ['opts set x block! | (x: [])] into ['font 'opts set y block! z: to end] end] [item opts [(x) (y)] (z)] ['check ['opts set x block! | (x: [])] into ['font 'opts set y block! z: to end] end] [check opts [(x) (y)] (z)] ['term ['opts set x block! | (x: [])] into ['font 'opts set y block! z: to end] end] [term opts [(x) (y)] (z)] ['desc ['opts set x block! | (x: [])] into ['font 'opts set y block! z: to end] end] [desc opts [(x) (y)] (z)] ['title ['opts set x block! | (x: [])] into ['font 'opts set y block! z: to end] end] [title opts [(x) (y)] (z)]]] 
@@ -2045,7 +1979,7 @@ qml-scanner: context [
     numbering: context [
         toc-counters: [0 0 0 0 0 0] 
         toc-style: ["1. " "1[.1] "] 
-        chars: complement charset "1AaIi[]" 
+        chars: complement charset "1AaIi[]0" 
         make-number: func [level /local style i res mk1 mk2 rpt term cont] [
             if not toc-style [return ""] 
             i: 1 
@@ -2063,7 +1997,9 @@ qml-scanner: context [
                     | 
                     "I" (insert tail res uppercase to-roman pick toc-counters i) 
                     | 
-                    "i" (insert tail res to-roman pick toc-counters i)
+                    "i" (insert tail res to-roman pick toc-counters i) 
+                    | 
+                    "0"
                 ] 
                 mk1: any chars mk2: (insert/part tail res mk1 mk2) (i: i + 1 cont: either i > level ['break] [[]]) cont
             ] 
@@ -2092,10 +2028,28 @@ qml-scanner: context [
                 "I" ["I. " "I[.1] "] 
                 "i" ["i) " "i[.1]) "]
             ] style [
-                toc-style: parse/all style "|"
+                toc-style: normalize parse/all style "|"
             ]
         ] 
-        reset: does [change/dup toc-counters 0 6]
+        reset: does [change/dup toc-counters 0 6] 
+        normalize: func [style /local count] [
+            insert/dup tail style last style 6 - length? style 
+            style: copy/deep style 
+            repeat level 6 [
+                if not empty? style/:level [
+                    count: 0 
+                    parse/all/case style/:level [
+                        some [
+                            any chars [["1" | "A" | "a" | "I" | "i" | "0"] (count: count + 1) 
+                                | ["[" | "]"] (count: 6)
+                            ] any chars
+                        ]
+                    ] 
+                    insert/dup style/:level #"0" level - count
+                ]
+            ] 
+            style
+        ]
     ] 
     collect: func [output doc rule /local node] [
         match doc [set node into rule (append/only output copy/deep node)] 
@@ -2168,6 +2122,9 @@ qml-scanner: context [
         ] [
             compose [target: (join http://www.qtask.com/qwiki.cgi?goto= target) class: "internal" text: (target)]
         ]
+    ] 
+    process-image-url: func [url] [
+        url
     ] 
     build-search-index: func [doc [block!] /local rule result val anchor] [
         result: copy/deep [toa [] doc-start ""] 

@@ -13,12 +13,13 @@ rebol [
       listening to the file file  may be resumed at a number of points
    }
     Comment: {
+      - script illustrates how to chop a file, but is of limited application - almost all MP3 players will fast forward & reverse
       - note how "copy/part" moves along the file, "skip" by itself, is not used
       - "Seek mode added for random access to large files"  http://www.rebol.net/article/0199.html
       - "Copy and Checksum Large Files"                              http://www.rebol.net/article/0281.html
    }
     History: [
-    0.1.0 [5-Nov-1997 "released" "rvdzee"]
+    0.1.0 [1-Jan-2007 "released" ]
 ]
     Language: 'English
     library: [

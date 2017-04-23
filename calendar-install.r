@@ -1,27 +1,22 @@
 REBOL [
    Author: {Izkata}
-   Email: Izkata@Comcast.net
+   Email: Izkata@gmail.com
    File: %calendar-install.r
    Date: 24-Jul-2005
    RealCreationDates: [1-Jul-2005 to 19-Jul-2005]
    Title: {Synchronizable Calendar/Scheduler}
    Purpose: {Easy-to-use Calendar/Scheduler that can be synchronized over a network, and has popup-alerts.}
    Info: {
-      Scary how easy it was to make something like this.... It took so long because I had
-      to discover algorithms for the schedules..  And I kept adding/discarding ideas as I
-      created it and changing the main datafile format... BAD, BAD idea if you want to get
-      it done quickly!!
-
       Interesting tidbits:
          The original installer was 32.3 KB large.
          Then I added comments to the (amazingly confusing) code, and it increased to 43.9 KB
          Then I fixed the sync'ing section (%Networking.r) to work nicer, and it shrank: 43.6 KB
          Finally, I added a nice Help section that allows comments and editing: 50.9 KB
 
-      Also... If you find bugs with the Networking parts... TELL ME! (Please?)  I wasn't able to
-      get to the family desktop for very long to test it much.  (dern brothers!)
+      If there are more problems, I do try to check the Rebol3 AltME world at least once a day...
    }
    History: [
+      21-Jan-2008 {A couple of problems found that crash View 1.3.2...  Both fixed}
       24-Jul-2005 {Initial Upload}
       26-Jul-2005 {A few fixes... Changed to a Package}
    ]

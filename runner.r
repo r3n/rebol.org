@@ -1,7 +1,7 @@
 REBOL [
    File: %runner.r
    Date: 31-Mar-2005
-   Author: {Daniel Sirotzke}
+   Author: {Izkata}
    Title: {Runner}
    Purpose: {
 

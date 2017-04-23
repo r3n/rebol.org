@@ -3,12 +3,12 @@ REBOL [
     Date: 25-Aug-2001
     Version: 1.0.0
     File: %copycon.r
-    Author: "Norman Deppenbroek"
+    Author: "ND"
     Purpose: {Inline Line-Editor for Rebol Console mode, you can extent by loading/saving/exeucting the buffer}
-    Email: rebolinth@nodep.dds.nl
+    Email: none
     library: [
         level: 'intermediate 
-        platform: none 
+        platform: 'all
         type: 'tool 
         domain: 'x-file 
         tested-under: none 

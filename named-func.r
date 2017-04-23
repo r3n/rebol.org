@@ -1,12 +1,12 @@
 REBOL [
     Author: "Ladislav Mecir"
-    Date: 1-Apr-2010/0:55:38+2:00
+    Date: 10-Oct-2012/11:36:38+2:00
     Title: "Named functions"
     File: %named-func.r
     Purpose: {
         Numerous requests were made by REBOL beginners wanting to get an easy recipe,
-        how to use named functions in REBOL. They usually get an answer, that in REBOL,
-        user-defined functions are anonymous, i.e. they do not have a name.
+        how to use named functions in REBOL. They usually get an answer that in REBOL,
+        user-defined functions are anonymous, i.e., they do not have a name.
         Only after they are defined, they can be assigned to one or more variables.
         While such functions are named after the assignment is performed, there is no easy way
         how to obtain the name of a given function, which is a basic requirement in the requests.

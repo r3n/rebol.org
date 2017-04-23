@@ -1,7 +1,7 @@
 Rebol [
     Author: "Ladislav Mecir"
     Date: 12-May-2006/15:58+2:00
-    Purpose: {REBOL code from contexts.html article}
+    Purpose: {REBOL code from the bindology article}
     File: %contexts.r
     Title: "Contexts"
 ]

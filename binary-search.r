@@ -1,4 +1,3 @@
-
 Rebol[
     Title: "Binary Search"
     Author: "Tom Conlin"
@@ -28,24 +27,25 @@ Rebol[
 binary-search: func [
     sorted-list[series!]    {smaller to bigger series by default,
                              or else supply your own comparison function}
-    key                     "item to try and find in the sorted series"
+    key                     "item to try and find in the sorted series of 'skip' size records"
     /low     L[integer!]    "opt low index in series to begin search: default 1"
     /high    H[integer!]    "opt high index in series to end search: default (length? sorted-list) "
     /compare cmp[function!] "opt comparison function of two args: cmp a b"
-    /local lo mid hi
-][
+    /local lo mid hi size
+][  
     either low  [lo: L][lo: 1]
     either high [hi: H][hi: length? sorted-list]
+    
     ;error conditions in input
-    if any[lo < 1 hi < lo (length? sorted-list) < hi][return none]
-    if not compare [cmp: func [a b][a > b]]
-
-    mid: to-integer lo + ((hi - lo) / 2)
+    if any[lo < 1 hi < lo  hi > length? sorted-list][return none]
+    if not compare [cmp: func [a b][a < b]]
+    
+    mid: to integer! (hi - lo / 2 + .5) + lo
     while[hi >= lo][
-        either equal? key (pick sorted-list mid)
+        either  key = pick sorted-list mid
             [return mid]
-            [either cmp key pick sorted-list mid[lo: mid + 1][hi: mid - 1]]
-        mid: to-integer lo + ((hi - lo) / 2)
+            [either cmp pick sorted-list mid key[lo: mid + 1][hi: mid - 1]]
+        mid: to integer! (hi - lo / 2 + .5) + lo
     ]
     mid
 ]

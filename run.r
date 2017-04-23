@@ -35,6 +35,8 @@ REBOL [
             TestCase files names or/and TestSuite file names            
     }
 	history: [  
+        1.9.3 [12-dec-07 {copy 'now  and 'print so that they can be
+                          over-written in tests} "pwawood" ]
         1.9.2 [14-mar-06 "cleanup for publishing" "cou"]
         1.8.2 [27-mar-05 "add 'assert-error" "cou"]
         1.7.2 [20-oct-04 {- 'pf_assert can take any-type! for evaluation
@@ -77,7 +79,15 @@ REBOL [
     ]
 ]
 
+;---- make a copy of  print and now so that tests can overwrite them
+now-copy: :now
+print-copy: :print
+
 RUn_ctx: context [
+  
+    ;---- make a copy of  print and now so that tests can overwrite them
+    now-copy: :now
+    print-copy: :print
     
     ;--- init private vars    
     prl_log: false ;==> flag for logging test reports
@@ -111,7 +121,7 @@ End of test
     	 /local lerr_result ll_result
     ][  
         ;--- start chronometer  	
-        prtime_duration: now/time/precise - prtime_start
+        prtime_duration: now-copy/time/precise - prtime_start
         
         ;--- evaluate condition and feedback
         either not al_condition [
@@ -135,7 +145,7 @@ End of test
     	 /local lerr_result 
     ][    	
         ;--- start chronometer  	
-        prtime_duration: now/time/precise - prtime_start
+        prtime_duration: now-copy/time/precise - prtime_start
         
         ;--- set order matter
         prl_sorted: only ;[1.7]
@@ -297,7 +307,7 @@ End of test
     ][    	
     	;--- display message.
         ;- some VID layout could be used here
-    	print either block? aany_msg [rejoin aany_msg][aany_msg]   
+    	print-copy either block? aany_msg [rejoin aany_msg][aany_msg]   
         
         ;--- if we want to log, check log file existance and log
         ;- msg into it	
@@ -353,7 +363,7 @@ End of test
     ][
         ;--- force the use of %.test suffix
         if not find afile_test %.test [ ;[1.5]
-            print [
+            print-copy [
                 "***" afile_test "is not a test file !" newline
                 "*** Please provide a valid file name."
             ]
@@ -376,7 +386,7 @@ End of test
             
         ;--- display RUn header
 	    pf_display prs_header      
-        if log [pf_display form now]
+        if log [pf_display form now-copy]
         
         ;--- branch test to TestCase or TestSuite
         ;- allowing recurent call
@@ -464,7 +474,7 @@ End of test
                 pri_test_count: pri_test_count + 1
                 ;--- execute single test and , if needed, handle error
                 if error? set/any 'lerr_result try [
-                    prtime_start: now/time/precise
+                    prtime_start: now-copy/time/precise
                     if all [ ;[1.2]
                         not lo_test/:ew_func_name
                         prl_quiet

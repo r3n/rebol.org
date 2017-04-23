@@ -1,21 +1,11 @@
 REBOL [
     Title: "Calendar and Scheduler"
     Date: 4-Jun-2001/10:20
-    Version: 1.0.6
+    Version: 1.0.7   ;; correct format problem -- see discussion thread for details
     File: %calendar.r
     Author: "Sterling Newton"
     Purpose: "A simple calendar application."
     Email: sterling@rebol.com
-    library: [
-        level: none 
-        platform: none 
-        type: none 
-        domain: [x-file GUI] 
-        tested-under: none 
-        support: none 
-        license: none 
-        see-also: none
-    ]
 ]
 
 cal-ctx: context [
@@ -211,7 +201,7 @@ cal-ctx: context [
             ]
         at m1 + (0x1 * dp-list/size / 2)
         at m1
-        dp-area: area (dp-info/size - 4x0) ivory ivory edge [size: none] with [show?: false ff: day: time: none]
+        dp-area: area (dp-info/size - 4x0) ivory ivory edge [size: 0x0] with [show?: false ff: day: time: none]
     ]
     dp-sld/redrag dp-list/lc / (48 - dp-list/lc)
     dp-sld/data: 16 / (48 - dp-list/lc)

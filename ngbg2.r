@@ -1,7 +1,7 @@
 REBOL [
     Title: "National Geographic Image of the Day Downloader"
-    Date: 15-June-2006
-    Version: 1.2.4
+    Date: 11-Sept-2007
+    Version: 1.2.5
     File: %ngbg2.r
     Author: "Gordon Raboud"
     History: [
@@ -32,6 +32,8 @@ REBOL [
     Purpose: { Downloads all the "Picture Of The Day" images (current and past)
 	from the National Geographic website and saves it to a location of your choice.
 	Revisions: 
+	Version 1.2.5 Checked to see if the large wallpaper exists and if not to use the smaller
+		wall paper image.		
 	Version 1.2.4 Changed from "Viewing" the POTD to "Browsing" the POTD which then
 		allows the user to go back to see other pictures that may have been missed.
 	Version 1.2.3 Added displays for current file name download. Added slider to set
@@ -125,8 +127,8 @@ BackdropPic: load-thru/binary http://raboud.ca/images/2001-05-14_NatGeo_POD_380x
 ;  Get save directory from prefs file if prefs file exits
 ;  If prefs file does not exist or is empty, use requester to get save
 ;  directroy and write this information to the prefs file for next time.
-Either exists? PrefsFullName [
-	Success: open PrefsFullName
+Either exists? PrefsFullName [	
+    Success: open PrefsFullName
 	Preferences: read/lines PrefsFullName
 	Either (length? Preferences) > 0 [
 		FileNamePath: to-file first Preferences
@@ -236,13 +238,13 @@ ProgressView: view Layout [
 				NextFile: join to-string NextDate ["_NatGeo_POD_Desc.html"]
 				If not exists? Filename1 [
 					If exists? ngwebsite [
-						page: read ngwebsite 
+						NGPage: read ngwebsite 
 						if PrintStuff [
-							prin join " parsing page " PODDate
+							prin join " parsing NGPage " PODDate
 						]
 		
 						; Parse filename
-						parse page [thru "/pod/pictures/sm_wallpaper/" copy NameOfJpg to "^""]
+						parse NGPage [thru "/pod/pictures/sm_wallpaper/" copy NameOfJpg to "^""]
 						NameOfJpg: trim NameOfJpg
 						If PrintStuff [
 						   print join " - image name = " NameOfJpg
@@ -250,8 +252,12 @@ ProgressView: view Layout [
 						DLNameInfo/text: NameOfJpg
 						show DLNameInfo
 						imageloc: join http://lava.nationalgeographic.com/pod/pictures/lg_wallpaper/ NameOfJpg
+						if not exists? imageloc [
+							Comment: "Use small wall paper is large doesn't exist."
+							imageloc: join http://lava.nationalgeographic.com/pod/pictures/sm_wallpaper/ NameOfJpg
+						]
 						; Parse Caption
-						parse page [thru "START caption and related" thru "place-photographer" thru "^">"
+						parse NGPage [thru "START caption and related" thru "place-photographer" thru "^">"
 						   copy PODPlace to "<" thru "place-photographer-sub" thru "^">"
 						   copy PODPhotographer to "<" thru "pod-caption" thru "^">"
 						   copy PODCaption to "</div>"

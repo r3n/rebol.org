@@ -1,8 +1,8 @@
 Rebol [
 	Title: "Use-rule"
 	File: %use-rule.r
-	Author: {"Ladislav Mecir" "Gregg Irwin"}
-	Date: 22-Sep-2010/17:17:01+2:00
+	Author: ["Ladislav Mecir" "Gregg Irwin"]
+	Date: 31-Oct-2010/9:48:59+1:00
 	Purpose: {
 		Create a recursion and thread-safe parse rule with local variables.
 		R2/R3 compatible.
@@ -19,13 +19,6 @@ Rebol [
 		is similar as the difference between closures and functions.
 
 		The WORDS block is expected to contain only words.
-
-		The /no-rebind variant expects the WORDS block
-		to not contain the word 'local, but the word 'local
-		is handled as one of the use words.
-		
-		The /no-rebind variant expects the WORDS block to not contain
-		the word 'inner-body, which is not handled as one of the use words.
 
 		The implementation of the USE-RULE function does not use
 		the latest parse enhancements to remain compatible with R2
@@ -64,13 +57,14 @@ use-rule: func [
 		]
 
 		; Define CONTEXT-FN's context to contain words specified by the caller.
-		spec: copy [/local]
-		append spec words
+		spec: copy []
+		unless empty? words [append spec to refinement! first words]
+		append spec next words
 		
 		; The CONTEXT-FN function calls the INNER-BODY function,
 		; supplying the given rule bound to the CONTEXT-FN function's context
 		; as the RULE argument to it.
-		context-fn: func spec reduce ['inner-body rule]
+		context-fn: func spec reduce [:inner-body rule]
 		
 		; The result rule will be a "snapshot" of the block below,
 		; COPY/DEEP is needed to make sure the subsequent calls

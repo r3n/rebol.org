@@ -1,13 +1,13 @@
 rebol [
 	Title: "Request List Enhanced"
-	Date:  10-Dec-2005
+	Date:  18-Aug-2014
 	Author: ["Mike Yaunish"]
-	Version: 0.9.1
+	Version: 0.9.3
 	Email: [%mike.yaunish--shaw--ca]
 	file: %request-list-enhanced.r
 	Comment: {Text-list Improvements by Carl Sassenrath & Updates by Paul Tretter.
-              request-list-auto-fill from REBOL mailing list author unknown. 
-              request-list-enhanced by Mike Yaunish. 
+              request-list-auto-fill from REBOL mailing list author unknown.
+              request-list-enhanced by Mike Yaunish.
     }
     Rights: "Copyright 2000-2005 REBOL Technologies. All rights reserved."
 	License: {
@@ -17,17 +17,27 @@ rebol [
 		(even commercial uses) as long as they abide by these conditions.
 	}
 	Purpose: {
-		An enhancement to the regular request-list that allows selecting items from a request list 
+		An enhancement to the regular request-list that allows selecting items from a request list
 		by typing in the first few characters of the item. Works with text, word and number lists.
-		Designed to make optimum use of the keyboard. 
+		Designed to make optimum use of the keyboard.
 		- New refinement request-list-enhanced/return-index will return the index of the item not the value.
-		- Keys used; cursor up, down, page-up, page-down, control+home, control+end, escape
-	}             
+		- Keys used; cursor up, down, page-up, page-down, control+home, control+end, escape, Function Key support for added "buttons" refinement
+	}
 	History: [
 		0.9.0 [ 9-Dec-2005 {Initial beta version published to rebol.org} mike.yaunish@shaw.ca ]
         0.9.1 [ 12-Dec-2005 {Changed the following behaviours so that the user can't escape without a valid selection:
         					 - Changed the behaviour when the enter key is pressed with a non-matching string.
         					 - Added handling of tab key and shift+tab to move up and down the list.}
+        ]
+        0.9.2 [ 15-Aug-2014 {Added
+                          - Scroll Wheel support
+                          - Added /list-size, /one-click and /buttons refinements
+                          - Force requester to display entirely on screen even if offset supplied would do otherwise
+                          - Fix requester truncating long unbroken lines
+                          }
+        ]
+        0.9.3 [ 18-Aug-2014 { Remove 'system/script/parent/header' from demo so that the 
+                                          entire script can be cut and paste into the console.}
         ]
     ]
 	library: [
@@ -35,7 +45,7 @@ rebol [
         platform: 'all
         type: [function module tool demo]
         domain: [gui patch ui]
-        tested-under: [View 1.3.1 on [win2k] ]
+        tested-under: [View 2.7.8.3.1 on [winXP] ]
         domain: [ftp game]
         tested-under: none
         support: none
@@ -45,14 +55,22 @@ rebol [
 ]
 
 request-list-enhanced-ctx: make object! [
-	request-list-styles: stylize [
+    valid-action: false ; flag variable to fix requester from closing
+	                    ; when characters typed and then window clicked
+    request-list-styles: stylize [
 		request-list-auto-fill: field with [
 			feel: make feel [
 				engage: func [
 					face act event index
 				] [
-
 					switch act [
+					    scroll-line [
+					        either ( positive? event/offset/y ) [
+					            move-selection 1
+					        ][
+					            move-selection -1
+					        ]
+					    ]
 						down [
 							either face <> system/view/focal-face [
 								focus face
@@ -69,17 +87,17 @@ request-list-enhanced-ctx: make object! [
 							]
 						]
 						key [
-							ctx-text/edit-text face event act 
-							; Added these event keys here because insert-event-func has caused some 
+							ctx-text/edit-text face event act
+							; Added these event keys here because insert-event-func has caused some
 							; problems with previously opened windows.
 							switch event/key [
 								down [move-selection 1]
 								#"^-" [ ; tab key
 									either event/shift [
-									   	move-selection -1    
+									   	move-selection -1
 									][
-										move-selection 1   	    
-									]	    	    
+										move-selection 1
+									]
 								]
 								page-down [move-selection (a-text-list/lc - 1)]
 								page-up [move-selection (-1 * (	a-text-list/lc - 1)	)]
@@ -90,9 +108,10 @@ request-list-enhanced-ctx: make object! [
 								]
 								up [move-selection -1]
 								#"^M" [ ; return key
+								    valid-action: true
 									face/action face face/text
 								]
-							]	    
+							]
 							if all [
 								char? event/key not empty? face/text find ctx-text/keys-to-insert event/key
 							] [
@@ -216,6 +235,7 @@ request-list-enhanced-ctx: make object! [
 			]
 
 			append init [
+			    valid-action: false
 				sz: size
 				sn: 0
 				slf: :self
@@ -227,6 +247,7 @@ request-list-enhanced-ctx: make object! [
 				iter: make-face/size 'txt sz * 1x0 + -16x20
 				iter/para: make self/para [
 					origin: 2x0
+					wrap?: false
 				]
 				iter/font: make self/font [
 				]
@@ -263,6 +284,7 @@ request-list-enhanced-ctx: make object! [
 							]
 
 							if e/double-click [
+							    valid-action: true
 								do :act slf f/text
 							]
 						]
@@ -288,6 +310,7 @@ request-list-enhanced-ctx: make object! [
 						]
 						sn: value
 						show sub-area
+						select-this-item (sn + 1)
 					]
 				]
 				size
@@ -311,7 +334,7 @@ request-list-enhanced-ctx: make object! [
 			]
 		]
 	]
-    
+
     select-this-item: func [new-index] [
 		a-text-list/picked-index: new-index
 		a-text-list/picked: reduce [to-string (	pick a-text-list/data a-text-list/picked-index )]
@@ -320,7 +343,7 @@ request-list-enhanced-ctx: make object! [
 		show a-field
 		focus a-field
 	]
-    
+
 	move-selection: func [direction /local new-index] [
 		new-index: ((a-text-list/picked-index) + direction)
 		if (new-index < 1) [
@@ -331,43 +354,81 @@ request-list-enhanced-ctx: make object! [
 		]
 		select-this-item new-index
 	]
-	
-	set 'request-list-enhanced func [
+
+	set 'request-list-enhanced func [ ; request-list-enhanced:
 	    titl [ string!] {Title of requester}
 		alist [	block! ] {List of data}
+		/list-size the-list-size [ pair! ] {height and width of list}
 		/offset where [pair!]  "xy -- Offset of window on screen"
 		/return-index "return the index value"
-		/local return-value all-strings orig-alist
-	] [ 
+		/one-click
+		/buttons buttons-block [ block! ] {A block of  <string>, <return value>, <Fkey> triplet.
+		            <string> = 'button text'
+		            <return value> = 'what requester returns when button clicked'
+		            <FKEY> = 'string for function key you want attached to button'
+		            }
+		/local return-value all-strings orig-alist bb i req-width l  single-click-action   search-action cb1 show? cb2 return-the-selection max-x max-y
+		; a-field a-text-list valid-action GLOBAL TO THIS CONTEXT
+	] [
+		bb: array/initial 2 reduce ["" "" ""] ; create an empty array to make layout happy.
+		if buttons [
+            either ((type? first  buttons-block) = block! ) [
+                ; need to copy just the number of blocks provided.
+                insert bb buttons-block
+                remove/part (skip bb (length? buttons-block) ) (length? buttons-block)
+
+            ][ ; just one button described not a block of blocks or  "bblock"
+                bb/1/1: buttons-block/1
+                bb/1/2: buttons-block/2
+                bb/1/3: buttons-block/3
+            ]
+            foreach i bb [
+                if all [ ((type? i/3 ) = string!) (i/3 <> "") ][
+                    i/3: to-lit-word i/3
+                ]
+            ]
+        ]
 	    all-strings: true
 	    orig-alist: copy alist
 	    alist: copy []
-	    foreach i orig-alist [ 
+	    if not list-size [
+	        the-list-size: 200x200
+
+	    ]
+	    req-width: the-list-size/x
+	    foreach i orig-alist [
 	        either type? i <> string![
 	            all-strings: false
-	            append alist to-string i        
+	            append alist to-string i
 	        ][
-	            append alist i           
-	        ]                
+	            append alist i
+	        ]
 	    ]
-		inform/title/offset l: layout [
+	    ; main layout
+		l: layout [
 			styles request-list-styles
-			a-text-list: request-text-list
+			a-text-list: request-text-list the-list-size
 			single-click ; default action is double-click
 			with [
 				single-click-action: func [
 					f v
 				] [
-					a-field/text: copy first a-text-list/picked show a-field
-					focus a-field
+				    either one-click [
+				        valid-action: true
+				        a-field/text: copy first a-text-list/picked show a-field
+                        return-the-selection
+				    ][
+    					a-field/text: copy first a-text-list/picked show a-field
+    					focus a-field
+				    ]
 				]
 			]
 			data alist [
 				; double-click-action
-				return-the-selection 
+				return-the-selection
 			]
 			across
-			a-field: request-list-auto-fill data alist search-action
+			a-field: request-list-auto-fill req-width data alist search-action
 			with [
 				search-action: func [f] [
 					a-text-list/picked-index: index? find a-text-list/data f/text
@@ -378,56 +439,106 @@ request-list-enhanced-ctx: make object! [
 				return-the-selection
 			]
 			return
-			button "OK" [ return-the-selection	]
-			button "CANCEL" keycode escape [ return-the-selection/value none	]
-			do [
+			button "OK" [
+			    valid-action: true
+			    return-the-selection
+			]
+			button "CANCEL" keycode escape [
+			    valid-action: true
+			    return-the-selection/value none
+			]
+			return
+            cb1: button bb/1/1 100x4 with [ show?: false ] [ return-the-selection/value bb/1/2 ] keycode bb/1/3
+            cb2: button bb/2/1 100x4 with [ show?: false ] [ return-the-selection/value bb/2/2 ] keycode bb/2/3
+            do [
 				return-the-selection: func [ /value the-value ] [
-				    either value [ 
+				    either value [
 				        return-value: the-value
 				        hide-popup
 				    ][
-    		        	either (a-field/text = first a-text-list/picked) [
+    		        	either all [ (valid-action) (a-field/text = first a-text-list/picked)] [
     		        		either return-index [
     			        		return-value: a-text-list/picked-index
     				        ] [
     				            either not all-strings [
     				                return-value: pick orig-alist a-text-list/picked-index
     				            ][
-    				                return-value: first a-text-list/picked           
-    				            ]                
-    					        
+    				                return-value: first a-text-list/picked
+    				            ]
     				        ]
     				        hide-popup
-    			        ][
-    			           focus a-field
-    			        ]	    
+    			        ][  ; return pressed but text doesn't match anything in the list
+    			            valid-action: false
+    			            focus a-field
+    			        ]
     			    ]
 		        ]
 		        select-this-item 1
 			]
-		] titl either offset [where] [ system/view/screen-face/size - l/size / 2 ]
+		]
+        if buttons [
+            if not (bb/1/1 = "") [
+                cb1/show?: true
+                cb1/size: 100x24
+            ]
+            if not (bb/2/1 = "") [
+                cb2/show?: true
+                cb2/size: 100x24
+            ]
+        ]
+        either offset [
+            max-x: system/view/screen-face/size/x - l/size/x - 35
+            max-y: system/view/screen-face/size/y - l/size/y - 35
+            where: to-pair  reduce [ ( min where/x max-x ) ( min where/y max-y ) ]
+        ][
+            where: system/view/screen-face/size - l/size / 2
+        ]
+		inform/title/offset l titl where
 		return return-value
 	]
 ]
 ; *** end of object ***
 
-demo: does [
+demo: func [
+    /local sample-word-list sample-numeric-list sample-text-list g f
+][
 	sample-word-list: sort first system/words
 	sample-numeric-list: [ 1 2 3 4 12 13 14 15 31 32 33 34 35 36 125 305 315 344 678 987 1003 ]
 	sample-text-list: []
+	wide-sample-text-list: []
 	foreach i first system/words [ append sample-text-list to-string i ]
+	foreach [i j k l m n o p ] first system/words [ append wide-sample-text-list rejoin [ to-string i " " j " "k " " l " " m " " n " " o " " p ] ]
 	sort sample-text-list
-	view layout [ 
-		across 
-		button 150 keycode 'F3 "word list ^-(F3)" [ g/text: type? f/text: request-list-enhanced "Type some text in:" sample-word-list  show [ f g ]] return
-		button 150 keycode 'F4 "text list ^-(F4)" [ g/text: type? f/text: request-list-enhanced "Type some text in:" sample-text-list  show [ f g ]] return
+	sort wide-sample-text-list
+	sort sample-text-list
+	view layout [
+		across
+		button 150 keycode 'F3 "word list ONE CLICK ^-(F3)" [ g/text: type? f/text: request-list-enhanced/one-click  "Type some text in:" sample-word-list  show [ f g ]] return
+		button 150 keycode 'F4 "text list BIG ^-(F4)" [ g/text: type? f/text: request-list-enhanced/list-size "Type some text in:" wide-sample-text-list 400x300 show [ f g ]] return
 		button 150 keycode 'F5 "numberic ^- (F5)" [ g/text: type? f/text: request-list-enhanced "Type some numbers in:" sample-numeric-list  show [ f g ] ] return
 		button 150 keycode 'F6 "return-index ^- (F6)" [ g/text: type? f/text: request-list-enhanced/return-index "Type some text in:" sample-text-list  show [ f g ] ] return
+		button 150 keycode 'F7 "With Buttons ^-(F7)" [
+		    req-result: "refresh-it"
+		    item-list: copy [ 1 2 3 4 5 6 7 ]
+		    while  [ any [ (req-result = "refresh-it") (req-result = "remove-it") ] ] [
+		        req-result: request-list-enhanced/one-click/buttons "Try the scroll wheel!" item-list [ ["refresh-F5" "refresh-it" "F5"]  [ "chop top-F7" "remove-it" "F7" ] ]
+		        case [
+		            req-result = "refresh-it" [
+		                append item-list first random sample-text-list
+		            ]
+		            req-result = "remove-it" [
+		                remove head item-list
+		            ]
+		        ]
+		        g/text: type? f/text: req-result
+		        show [ f g ]
+		    ]
+		]
 		return
 		label "return type:" g: field  return
-		label "return value:" f: field 
-		
+		label "return value:" f: field
+
 	]
 ]
-; uncomment line below to see how it works 
-; demo halt
+
+demo

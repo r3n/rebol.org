@@ -3,7 +3,7 @@ REBOL [
 	date: 18-Feb-2004
 	title: "VID Button Set"
 	author: "Ammon Johnson"
-	email: ammon@addept.ws
+	email: ammon.johnson@gmail.com
 	purpose: "A simple VID Button set.  Includes Ok, Cancel, Toggle and Choice"
 	library: [
 		level: 'intermediate

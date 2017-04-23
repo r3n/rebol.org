@@ -3,6 +3,7 @@ REBOL [
        Date: 21-may-2006
        File: %safe-cgi-data-read.r
      Author: "Sunanda"
+    Version: 0.0.2
     Purpose: {
         Safely retrieves CGI GET or POST data
         into a REBOL object.
@@ -18,19 +19,24 @@ REBOL [
       license: 'mit
       see-also: none
     ]
+    
+    History: [
+            0.0.1 21-may-2006 "Sunanda" "first release"
+            0.0.2 22-jun-2011 "Sunanda" "tweak by Peter Wood to allow running from console"
+            ]
 ]
 
 safe-cgi-data-read: func [ "Safe way to read CGI parameter data"
-  /template template-obj [object!] "Default values"
-  /keep-blocks "Do not collapse blocks to strings"
-  /no-trim   "Do not trim whitespace"
-  /refresh  "Do not use cached data"
-  /local
-   cgi-string
-   cgi-block
-   cgi-object
-   read-cgi
-   temp
+      /template template-obj [object!] "Default values"
+      /keep-blocks "Do not collapse blocks to strings"
+      /no-trim   "Do not trim whitespace"
+      /refresh  "Do not use cached data"
+      /local
+           cgi-string
+           cgi-block
+           cgi-object
+           read-cgi
+           temp
 ][
 
 ;; -----------------------------
@@ -52,6 +58,7 @@ read-cgi: func [
 			]
 		]
 		"GET" [data: system/options/cgi/query-string]
+        #[none] [data: system/script/args]	     ;; 0.0.2 -- Peter Wood's tweak
 	]
 	data
 ]
@@ -116,13 +123,3 @@ read-cgi: func [
  if not template [return make object! cgi-block]
  return construct/with cgi-block template-obj
 ]
-
-
-
-
-
-
-
-
-
-

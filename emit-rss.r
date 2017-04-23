@@ -120,7 +120,7 @@ build-rss: [
             'link (err join "No Item Link Url - " id)
             url (emit-tags link form txt)
             'author (err join "No Item Author Details - " id)
-            into author (emit-tags author rejoin [txt " <" eml ">"])
+            into author (emit-tags author rejoin ["" eml " (" txt ")"])
             'pubdate (err join "No Item Date - " id)
             set txt date! (emit-tags pubDate form to-idate txt)
             'description (err join "No Item Description - " id)

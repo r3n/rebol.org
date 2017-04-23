@@ -24,7 +24,9 @@ ctx-strip: context [
     list-view?: no 
     if list-view? [
         do-thru http://www.fm.vslib.cz/~ladislav/rebol/include.r 
-        read-thru/to http://www.hmkdesign.dk/rebol/list-view/list-view.r %list-view.r 
+      ;;  read-thru/to http://www.hmkdesign.dk/rebol/list-view/list-view.r %list-view.r 
+         read-thru/to http://97.107.135.89/www.hmkdesign.dk/data/projects/list-view/downloads/list-view.r 
+                             %list-view.r 
         include %list-view.r
     ] 
     archive: make binary! 32000 

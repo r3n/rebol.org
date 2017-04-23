@@ -3,7 +3,7 @@ Title: "Rebolide"
 File: %rebolide.r 
 Author: "Massimiliano Vessi" 
 Date: 2010-12-31 
-Version: 3.2.19
+Version: 5.4.39
 email: maxint@tiscali.it
 Purpose: {A Rebol IDE for beginners that helps learning Rebol. 
 	I suggest you to put this script in a separete folder.} 
@@ -17,10 +17,11 @@ license: 'gpl
 see-also: none ] 
 ]
 
+
 ;thanks to Graham, Nick Antonaccio, Semseddin Moldibi, Zoltan Eros, R. v.d.Zee
 
 yv1:  to-block { label "Words" return label "Blocks" return label "Functions" return label "Objects"}
-; function to find object, function, etc. in source
+; function to find object, function, etc. in your source
 findall: func [ a_findall /local temp temp2  ] [
 	temp: copy []
 	temp: copy to-block  a_findall	
@@ -46,12 +47,66 @@ findall: func [ a_findall /local temp temp2  ] [
 	]
 
 
+;Return the usage of every command
+utilizzo:  func [
+    "Prints information about words and values."
+    'word [any-type!]
+    /local value args item type-name refmode types attrs rtype temp4
+][
+temp4: copy []
+if all [word? :word not value? :word] [word: mold :word]
+    if any [string? :word all [word? :word datatype? get :word]] [
+        types: dump-obj/match system/words :word
+        sort types
+        if not empty? types [
+            return reform ["Found these words:" newline types]
+            exit
+        ]
+        return reform ["No information on" word "(word has no value)"]
+        exit
+    ]
+    type-name: func [value] [
+        value: mold type? :value
+        clear back tail value
+        join either find "aeiou" first value ["an "] ["a "] value
+    ]
+    if not any [word? :word path? :word] [
+        return reform [mold :word "is" type-name :word]
+        exit
+    ]
+    value: either path? :word [first reduce reduce [word]] [get :word]
+    if not any-function? :value [
+        append temp4 [uppercase mold word "is" type-name :value "of value: "]
+        append temp4 either object? value [print "" dump-obj value] [mold :value]
+         return reform temp4
+        exit
+    ]
+    args: third :value
+    
+    append temp4  "USAGE: "
+    if not op? :value [append temp4 (append uppercase mold word " ")]
+    while [not tail? args] [
+        item: first args
+        if :item = /local [break]
+        if any [all [any-word? :item not set-word? :item] refinement? :item] [
+            append temp4 (append mold :item " ")
+            if op? :value [append temp4 (append uppercase mold word " " value: none)]
+        ]
+        args: next args
+    ]
+    return reform temp4
+    ]
 
 
 
 ;functio to insert text in the source area
-inni: func [testo2 ] [
-	set-text/caret a testo2
+inni: func [testo2 /local temp3] [
+	set-text/caret a testo2	
+	temp3: parse testo2 none
+	temp3: to-word first temp3
+	temp3: utilizzo :temp3	
+	uso/text: to-string temp3
+	show uso
 	]
 
 
@@ -85,12 +140,22 @@ lancia: func [ temp /local corpo ] [
 
 ;check Rebgui existance and version
 if not (exists? %rebgui.r) [ 
-	Alert "Rebgui not found, I'll try to download it"
-	read-thru/expand/update/to  http://www.dobeash.com/RebGUI/rebgui.r %rebgui.r
+	Alert  "Rebgui not found, I'll try to download it"		
+	temp: request-download http://www.dobeash.com/RebGUI/rebgui.r 
+	temp: decompress skip temp 8
+	write %rebgui.r  temp
 	]
 if  (exists? %rebgui.r ) [
   temp: load/header %rebgui.r
   if (temp/1/version <> 117 ) [ alert "Watch out, your RebGUI version is different from 117; this script could not work properly!"]
+]
+
+;block with al converion functions
+allconverions:  [to-binary 
+    to-bitset to-block to-char to-closure to-datatype to-date to-decimal to-email to-error to-file to-function to-get-path to-get-word to-hash 
+    to-hex to-idate to-image to-integer to-issue to-itime to-library to-list to-lit-path to-lit-word to-local-file to-logic to-map 
+    to-money to-none to-pair to-paren to-path to-port to-rebol-file 
+    to-refinement to-relative-file to-set-path to-set-word to-string to-tag to-time to-tuple to-typeset to-url to-word
 ]
 
 
@@ -156,100 +221,154 @@ tab-panel  data [
 			button -1 "Example" [ inni {Rebol []
 print "Hello word!"
 wait 10} ] tip "Example"
-			return
+			return 
 			group-box "Comparison" data [
 				button -1 "<" [ inni "< " ] tip "Returns TRUE if the first value is less than the second value"
 				button -1 "<=" [ inni "<= " ] tip "Returns TRUE if the first value is less than or equal to the second value"
 				button -1 "<>" [ inni "<> " ] tip "Returns TRUE if the values are not equal"
 				button -1 "=" [ inni "= " ] tip "Returns TRUE if the values are equal"
 				button -1 "==" [ inni "== " ]  tip "Returns TRUE if the values are equal and of the same datatype"
-				return
+				return 
 				button -1 "=?" [ inni "=? " ]  tip "Returns TRUE if the values are identical.(same memory)"
 				button -1 ">" [ inni "> " ]  tip "Returns TRUE if the first value is greater than the second value"
 				button -1 ">=" [ inni ">= " ]  tip "Returns TRUE if the first value is greater than or equal to the second value"
 				button -1 "!=" [ inni "!= " ]  tip "Returns TRUE if the values are not equal"
 				button -1 "!==" [ inni "!== " ]  tip "Returns TRUE if the values are not equal and not of the same datatype"
-				return
+				return 
 				button -1 "=?" [ inni "?= " ]  tip "Returns TRUE if the values are identical"
 				]
-			return
+			return 
 			group-box "Context" data [
 				button -1 "alias" [ inni "alias " ]  tip "Creates an alternate alias for a word"
 				button -1 "bind" [ inni "bind /copy " ]  tip "Binds words to a specified context"
+				button -1 "bind?" [ inni "bind?  " ]  tip "Returns the context in which a word is bound?"
+				button -1 "body-of" [ inni "body-of  " ]  tip "Returns a copy of the body of a function or object"
+				return 
+				button -1 "bound?" [ inni "bound?  " ]  tip "Returns the context in which a word is bound"
+				return 
+				button -1 "closure" [ inni "closure [] []  " ]  tip "Defines a closure function"
+				button -1 "closure?" [ inni "closure? " ]  tip "Returns TRUE if it is this type"
+				button -1 "collect" [ inni "collect /into [] " ]  tip "Evaluates a block, storing values via KEEP function, and returns block of collected values"
+				return 
+				button -1 "collect-words" [ inni "collect-words /deep /set /ignore [] " ]  tip " Collect unique words used in a block (used for context construction)"
+				
+				button -1 "construct" [ inni "construct /with " ]  tip "Creates an object, but without evaluating its specification"
+				return 
 				button -1 "context" [ inni "context " ]  tip "Defines a unique (underived) object"
+				button -1 "default" [ inni "default " ]  tip "Set a word to a default value if it hasn't been set yet"
+				button -1 "free" [ inni "free " ]  tip " Frees a REBOL resource. (Command version only)"
 				button -1 "get" [ inni "get /any " ]  tip "Gets the value of a word"
 				button -1 "in" [ inni "in " ]  tip "Returns the word in the object's context"
-				return
+				
+				
+				return 
+				button -1 "link-app?" [ inni "link-app? " ]  tip " Tell whether a script is running under a Link application context"				
+				button -1 "protect" [ inni "protect " ]  tip "Protect a word or block to prevent from being modified"
+				button -1 "protect-system" [ inni "protect-system " ]  tip "Protects all system functions and the system object from redefinition"
+				return 
+				button -1 "reflect" [ inni "reflect" ]  tip "Returns definition-related details about a value"				
+				button -1 "resolve" [ inni "resolve /only /all " ]  tip "Copy context by setting values in the target from those in the source."     
 				button -1 "set" [ inni "set /any /pad " ]  tip "Sets a word or block of words to specified value(s)"
-				button -1 "unset" [ inni "unset " ]  tip "Unsets the value of a word"
+				button -1 "unbind" [ inni "unbind  /deep" ]  tip "Unbinds words from context"
+				return 
+				button -1 "unset?" [ inni "unset?  " ]  tip "Returns TRUE for unset values"
+				return 
+				button -1 "unprotect" [ inni "unprotect " ]  tip "Unprotects a word or block of words"
+				 
+				button -1 "unset" [ inni "unset " ]  tip "Unsets the value of a word"				
 				button -1 "use" [ inni "use " ]  tip "Defines words local to a block"
 				button -1 "value?" [ inni "value? " ]  tip "Returns TRUE if the word has been set"
 				
 				
 				]
-			return
+			return 
 			group-box "Control" data [
+				button -1 "also" [ inni "also [] []  " ]  tip " Returns the first value, but also evaluates the second"
 				button -1 "break" [ inni "break /return " ]  tip "Breaks out of a loop, while, until, repeat, foreach, etc"
+				button -1 "case" [ inni "case /all [] " ]  tip " Evaluates each condition, and when true, evaluates what follows it."
 				button -1 "catch" [ inni "catch [ throw ] " ]  tip "Catches a THROW from a block and returns its value"
-				return
-				button -1 "compose" [ inni "compose /deep /only [ ( ) ] " ]  tip "Evaluates a block of expressions, only evaluating parens, and returns a block"
+				return				
 				button -1 "disarm" [ inni "disarm " ]  tip "Returns the error value as an object"
 				button -1 "do" [ inni "do /args /next [] " ]  tip "Evaluates a block, file, URL, function, word, or any other value"
-				return
+				button -1 "do-boot" [ inni "do-boot " ]  tip "Does a value only if it and its file (URL) and it's dependent exists"
+				button -1 "do-browser" [ inni "do-browser " ]  tip "Evaluate browser script"
+				return 
+				button -1 "do-events" [ inni "do-events " ]  tip " Process all View events"
+				button -1 "do-face" [ inni "do-face " ]  tip "(undocumented)"
+				button -1 "do-face-alt" [ inni "do-face-alt " ]  tip "(undocumented)"
+				return 
+				button -1 "do-thru" [ inni "do-thru /args /update /check /boot " ]  tip "Do a net file from the disk cache"
 				button -1 "does" [ inni "does [] " ]  tip "A shortcut to define a function that has no arguments or locals"
 				button -1 "either" [ inni "either [] []  " ]  tip "If condition is TRUE, evaluates the first block, else evaluates the second"
-				button -1 "exit" [ inni "exit " ]  tip "Exits a function, returning no value"
+				button -1 "else" [ inni "else []  " ]  tip "Else is obsolete; use either"
+				return 
+				button -1 "exists-thru?" [ inni "exists-thru? /check  " ]  tip "Checks if a file is in the disk cache. Returns: none, false (out of date), or file"
+				 button -1 "exit" [ inni "exit " ]  tip "Exits a function, returning no value"
 				button -1 "for" [ inni "for word start end bump [] " ]  tip "Repeats a block over a range of values"
-				return
+				button -1 "forall" [inni "forall " ] tip "Evaluates a block for every value in a series"
+				return 
 				button -1 "foreach" [inni "foreach word series [] " ] tip "Evaluates a block for each value(s) in a series"
 				button -1 "forever" [ inni "forever [] " ]  tip "Evaluates a block endlessly"
 				button -1 "forskip" [ inni "forskip word skip-num series [] " ]  tip "Evaluates a block for periodic values in a series"
 				return
 				button -1 "func" [ inni {func [ /local "usage" /refinemet "refinemet usage"] []} ]  tip "Creates a function"
+				button -1 "funct" [ inni {funct [spec body /with object]} ]  tip "Defines a function with all set-words as locals"
+				button -1 "function" [ inni {function [spec var body]} ]  tip "Defines a user function with local words"
 				button -1 "halt" [ inni "halt " ]  tip "Stops evaluation and returns to the input prompt"
+				button -1 "has" [ inni "has " ]  tip "A shortcut to define a function that has local variables but no arguments"
+				return 
 				button -1 "if" [ inni "if  cond [] " ]  tip "If condition is TRUE, evaluates the block"
 				return
+				button -1 "in-dir" [ inni "in-dir " ]  tip "Evaluate a block while in a directory"
 				button -1 "launch" [ inni "launch " ]  tip "Launches a new REBOL interpreter process"
+				button -1 "launch-thru" [ inni "launch-thru /update /check " ]  tip " Launch a net file from the disk cache"
 				button -1 "loop" [ inni "loop n [] " ]  tip "Evaluates a block a specified number of times"
-				button -1 "protect" [ inni "protect " ]  tip "Protect a word or block to prevent from being modified"
-				return
-				button -1 "protect-system" [ inni "protect-system " ]  tip "Protects all system functions and the system object from redefinition"
+				return 			
+				button -1 "repeat" [ inni "repeat " ]  tip "Evaluates a block a specified number of times"
 				button -1 "quit" [ inni "quit " ]  tip "Stops evaluation and exits the interpreter"
+				button -1 "quote" [ inni "quote " ]  tip "Returns the value passed to it without evaluation"
 				button -1 "reduce" [ inni "reduce " ]  tip "Evaluates an expression or block expressions and returns the result"
 				return
 				button -1 "rejoin" [ inni "rejoin " ]  tip "Reduces and joins a block of values"
 				button -1 "return" [ inni "return " ]  tip "Returns a value from a function"
 				button -1 "secure" [ inni "secure []  " ]  tip "Specifies security policies (access levels and directories)"
 				button -1 "switch" [ inni "switch /default [] " ]  tip "Selects a choice and evaluates what follows it"
-				return
-				button -1 "throw" [ inni "catch [ throw ] " ]  tip "Throws control back to a previous catch"
-				button -1 "try" [ inni "try [] " ]  tip "Tries to DO a block and returns its value or an error"
-				button -1 "unprotect" [ inni "unprotect " ]  tip "Unprotects a word or block of words"
+				return				
+				button -1 "throw" [ inni "throw /name " ]  tip "Throws control back to a previous catch"
+							
 				button -1 "until" [ inni "until []  " ]  tip "Evaluates a block until its last command is TRUE"
+				button -1 "unless" [ inni "unless  " ]  tip "Evaluates the block if condition is not TRUE"
 				return
-				button -1 "wait" [ inni "wait /all " ]  tip "Waits for a duration, port, or both"
+				button -1 "wait" [ inni "wait /all " ]  tip "Waits for a duration, port, or both"				
 				button -1 "while" [ inni "while [] [] " ]  tip "While the first block is TRUE, evaluates the second block"				
 				]
-			return
-			group-box "Datatype" data [	
-				button -1 "to-local-file" [ inni "to-local-file  " ]  tip "Converts a REBOL file path to the local system file path"
-				button -1 "to-rebol-file" [ inni "to-rebol-file  " ]  tip "Converts a local system file path to a REBOL file path"
-				return
-				button -1 "any-block" [ inni "any-block  " ]  tip "Returns TRUE for any-block values"
-				button -1 "any-function?" [ inni "any-function?  " ]  tip "Returns TRUE for any-function values"
+			return 
+			group-box "Datatype" data [
+					button -1 " datatypes" [ inni " datatypes  " ]  tip "Variable that contains all datatypes"
+					return 
+				group-box "Conversion" data [
+					button -1 "to" [ inni "to binary!/bitset!/block!/char!/date!/decimal!/email!/file!/get-word!/hash!/hex!/idate!/image!/integer!/issue!/list!/lit-path!/lit-word!/logic!/money!/pair!/paren!/path!/refinement!/set-path!/set-word!/string!/tag!/time!/tuple!/url!/word!" ]  tip "Constructs and returns a new value after conversion"
+					text "or"
+					drop-list "to-"  30 data allconverions [ inni  face/text ]
+					return 
+					button -1 "as-pair" [ inni "as-pair  " ]  tip "Combine X and Y values into a pair"
+					button -1 "as-binary" [ inni "as-binary  " ]  tip "Coerces any type of string into a binary! datatype without copying it"
+					button -1 "as-string" [ inni "as-string  " ]  tip "Coerces any type of string into a string! datatype without copying it"
+					return 
+					button -1 "cvs-date" [ inni "cvs-date  " ]  tip "Converts CVS date"
+					button -1 "cvs-version" [ inni "cvs-version  " ]  tip "Converts CVS version number"
+					]
+				return 
+
 				button -1 "action?" [ inni "action?  " ]  tip "Returns TRUE for action values"
-				return
-				button -1 "any-string?" [ inni "any-string?  " ]  tip "Returns TRUE for any-string values"
-				button -1 "any-type?" [ inni "any-type?  " ]  tip "Returns TRUE for any-type values"
-				return
-				button -1 "any-word?" [ inni "any-word?  " ]  tip "Returns TRUE for any-word values"
-				button -1 "as-pair" [ inni "as-pair  " ]  tip "Combine X and Y values into a pair"
+				return 				
+				button -1 "ascii?" [ inni "ascii?  " ]  tip " Returns TRUE if value or string is in ASCII character range (below 128)"
 				button -1 "binary?" [ inni "binary? " ]  tip "Returns TRUE for binary values"
 				return
 				button -1 "bitset?" [ inni "bitset?  " ]  tip "Returns TRUE for bitset values"
 				button -1 "block?" [ inni "block?  " ]  tip " Returns TRUE for block values"
-				button -1 "char?" [ inni "char?  " ]  tip " Returns TRUE for char values"
-				button -1 "datatype?" [ inni "datatype?  " ]  tip "Returns TRUE for datatype values"
+				button -1 "char?" [ inni "char?  " ]  tip " Returns TRUE for char values"				
+				button -1 "datatype?" [ inni "datatype?  " ]  tip "Returns TRUE for datatype values"				
 				return
 				button -1 "date?" [ inni "date?  " ]  tip "Returns TRUE for date values"
 				button -1 "decimal?" [ inni "decimal? " ]  tip "Returns TRUE for decimal values"
@@ -258,6 +377,8 @@ wait 10} ] tip "Example"
 				button -1 "error?" [ inni "error?  " ]  tip "Returns TRUE for error values"
 				button -1 "function?" [ inni "function?  " ]  tip "Returns TRUE for function values"
 				button -1 "get-word?" [ inni "get-word?  " ]  tip " Returns TRUE for get-word values"
+				return 
+				button -1 "get-path?" [ inni "get-path?  " ]  tip " Returns TRUE for get-path values"
 				return
 				button -1 "hash?" [ inni "hash?  " ]  tip "Returns TRUE for hash values"
 				button -1 "image?" [ inni "image?  " ]  tip "Returns TRUE for image values"
@@ -272,8 +393,11 @@ wait 10} ] tip "Example"
 				button -1 "logic?" [ inni "logic?  " ]  tip " Returns TRUE for logic values"
 				button -1 "make" [ inni "make  " ]  tip " Constructs and returns a new value"
 				return
+				button -1 "map?" [ inni "map?  " ]  tip "Returns TRUE for hash values"
 				button -1 "money?" [ inni "money?  " ]  tip " Returns TRUE for money values"
 				button -1 "native?" [ inni "native?  " ]  tip "Returns TRUE for native values"
+				return 
+				button -1 "native" [ inni "native  " ]  tip "(undocumented)"
 				button -1 "none?" [ inni "none?  " ]   tip "Returns TRUE for none values"
 				return
 				button -1 "number?" [ inni "number?  " ]  tip "Returns TRUE for number values"
@@ -292,87 +416,106 @@ wait 10} ] tip "Example"
 				button -1 "set-path?" [ inni "set-path?  " ]  tip "Returns TRUE for set-path values"
 				button -1 "set-word?" [ inni "set-word?  " ]  tip "Returns TRUE for set-word values"
 				return
+				button -1 "scalar?" [ inni "scalar?  " ]  tip " Returns TRUE for scalar values"
 				button -1 "string?" [ inni "string?  " ]  tip " Returns TRUE for string values"
 				button -1 "struct?" [ inni "struct? " ]  tip "Returns TRUE for struct values"
 				button -1 "tag?" [ inni "tag?  " ] tip "Returns TRUE for tag values"
 				return
 				button -1 "time?" [ inni "as-pair  " ] tip "Returns TRUE for time values"
-				button -1 "to" [ inni "to binary!/bitset!/block!/char!/date!/decimal!/email!/file!/get-word!/hash!/hex!/idate!/image!/integer!/issue!/list!/lit-path!/lit-word!/logic!/money!/pair!/paren!/path!/refinement!/set-path!/set-word!/string!/tag!/time!/tuple!/url!/word!" ]  tip "Constructs and returns a new value after conversion"
+				return 
 				button -1 "tuple?" [ inni "tuple?  " ]  tip "Returns TRUE for tuple values"
 				button -1 "type?" [ inni "type?  " ]  tip "Returns a value's datatype"
+				button -1 "typeset?" [ inni "typeset?  " ]  tip "Returns TRUE if it is this type"
 				return
 				button -1 "unset?" [ inni "unset?  " ]  tip "Returns TRUE for unset values"
 				button -1 "url?" [ inni "url?  " ]  tip " Returns TRUE for url values"
+				button -1 "utf?" [ inni "utf?  " ]  tip "Returns the UTF encoding from the BOM (byte order marker): + for BE; - for LE"
 				button -1 "word?" [ inni "word?  " ]  tip " Returns TRUE for word values"
 				]
-			return
-			group-box "Debug" data [
+			return 
+			group-box "Debug"  data [
+				button -1 "asert" [ inni "assert [] " ]  tip "Assert that condition is true, else throw an assertion error"
 				button -1 "attempt" [ inni "attempt [] " ]  tip "Tries to evaluate and returns result or NONE on error"
-				button -1 "comment" [ inni "comment []  " ]  tip "Ignores the argument value and returns nothing"
-				button -1 "dump-obj" [ inni "dump-obj /match " ]  tip "Returns a block of information about an object"
+				button -1 "cause-error" [ inni "cause-error  err-type err-id args " ]  tip "Causes an immediate error with the provided information"
 				return 
+				button -1 "comment" [ inni "comment []  " ]  tip "Ignores the argument value and returns nothing"
+				button -1 "component?" [ inni "component?  " ]  tip "Returns specific REBOL component info if enabled"
+				button -1 "dump-obj" [ inni "dump-obj /match " ]  tip "Returns a block of information about an object"				
+				return 
+				button -1 "dbug" [ inni "dbug " ]  tip "(Undocumented)"
 				button -1 "probe" [ inni "probe " ]  tip "Prints a molded, unevaluated value and returns the same value"
 				return 
 				button -1 "source" [ inni "source " ]  tip "Prints the source code for a word"
+				button -1 "stats" [ inni "stats /pools /types /series /frames /recycle /evals /clear " ]  tip "System statistics.  Default is to return total memory used"
 				button -1 "trace" [ inni "trace /net /function " ]  tip "Enables and disables evaluation tracing"
+				button -1 "throw-error" [ inni "throw-error " ]  tip "Causes an immediate error throw with the provided information"
+				return 
+				button -1 "throw-on-error" [ inni "throw-on-error " ]  tip "Evaluates a block, which if it results in an error, throws that error"
+				button -1 "title-of" [ inni "title-of " ]  tip "Returns a copy of the title of a function"
+				button -1 "try" [ inni "try [] " ]  tip "Tries to DO a block and returns its value or an error"
+				return 
+				button -1 "types-of" [ inni "types-of " ]  tip "Returns a copy of the types of a function"
+				button -1 "values-of" [ inni "values-of " ]  tip "Returns a copy of the values of an object"
+				button -1 "vbug" [ inni "vbug " ]  tip "(undocumented)"
 				button -1 "?" [ inni "? " ]  tip "Prints information about words and values"
 				button -1 "??" [ inni "?? " ]  tip "Prints a variable name followed by its molded value"
 				return
 				button -1 "about" [ inni "about " ]  tip "Information about REBOL"
-				
+				button -1 "what" [ inni "what " ]  tip "Prints a list of globally-defined functions"
+				button -1 "words-of" [ inni "words-of " ]  tip "Returns a copy of the words of a function or object"
 				]
-			return	
-			group-box "Logic" data [
-				button -1 "all" [ inni "all [] " ]  tip "Shortcut for AND. Evaluates and returns at the first FALSE or NONE"
-				button -1 "and" [ inni "and " ]  tip "Returns the first value ANDed with the second"
-				button -1 "any" [ inni "any [] " ]  tip "Shortcut OR. Evaluates and returns the first value that is not FALSE or NONE"
-				button -1 "complement" [ inni "complement " ]  tip "Returns the one's complement value"
-				return
-				button -1 "not" [ inni "not " ]  tip "Returns the logic complement"
-				button -1 "!" [ inni "! " ]  tip "Returns the logic complement"
-				button -1 "or" [ inni "or " ]  tip "Returns the first value ORed with the second"
-				button -1 "xor" [ inni "xor " ]  tip "Returns the first value exclusive ORed with the second"
-				
+			return			 
+			group-box "Email" data [
+				button -1 "build-attach-body" [ inni "build-attach-body  BODY FILES BOUNDARY_STRING" ]  tip "Return an email body with attached files"
+				button -1 "build-markup" [ inni "build-markup /quite" ]  tip "Return markup text replacing <%tags%> with their evaluated results"
+				return 
+				button -1 "build-tag" [ inni "build-tag " ]  tip "Generates a tag from a composed block"
+				button -1 "import-email" [ inni "import-email /multiple " ]  tip "Constructs an email object from an email message"
+				return 
+				button -1 "parse-email-addrs" [ inni "parse-email-addrs " ]  tip "Create a series from a string conaining multiple email adresses."
+				button -1 "send" [ inni "send /only /header /attach /subject /show address message " ]  tip "Send a message to an address(es)"
+				button -1 "resend" [ inni "resend " ]  tip "Relay a message"
 				]
-			return	
-			group-box "I/O" data [
-				button -1 "ask" [ inni "ask /hide " ]  tip "Ask the user for input"
-				button -1 "checksum" [ inni "checksum /tcp /secure /hash /mehod /key  " ]  tip "Returns a CRC or other type of checksum"
-				button -1 "close" [ inni "close " ]  tip "Closes an open port connection"
+			return 
+			group-box "Encryption & Compression" data [
 				button -1 "compress" [ inni "compress  " ]  tip "Compresses a string series and returns it"
-				return
-				button -1 "debase" [ inni {debase  /base "" } ]  tip "Converts a string from a different base representation to binary"
-				button -1 "decode-cgi" [ inni {decode-cgi } ]  tip "Converts CGI argument string to a block of set-words and value strings"
 				button -1 "decompress" [ inni "decompress  " ]  tip "Decompresses a binary series back to a string"
 				return
-				button -1 "dispatch" [ inni "dispatch [] " ]  tip "Wait for a block of ports. As events happen, dispatch port handler blocks"
-				button -1 "enbase" [ inni "enbase  " ]  tip "Converts a string to a different base representation"
-				button -1 "get-modes" [ inni "get-modes " ]  tip "Returns mode settings for a port"
-				return
-				button -1 "input" [ inni "input /hide " ]  tip "Inputs a string from the console. New-line character is removed"
-				button -1 "import-email" [ inni "import-email /multiple " ]  tip "Constructs an email object from an email message"
-				button -1 "load" [ inni "load /header /next /library /markup /all " ]  tip "Loads a file, URL, or string. Binds words to global context"
-				button -1 "open" [ inni "open /binary /string /direct /new /write /no-wait /lines /with /allow /mode / custom /skip " ]  tip "Opens a new port connection"
-				return
-				button -1 "parse-xml" [ inni "parse-xml " ]  tip "Parses XML code and returns a tree of blocks"
-				button -1 "prin" [ inni "prin " ]  tip "Outputs a value with no line break"
-				button -1 "print" [ inni "print  " ]  tip "Outputs a value followed by a line break"
-				button -1 "query" [ inni "query  " ]  tip "Returns information about a file, port or URL"
-				return
-				button -1 "read" [ inni "read  /binary /string /direct /new /write /no-wait /lines /with /allow /mode / custom /skip " ]  tip "Reads from a file, url, or port-spec"
-				button -1 "read-io" [ inni "read-io " ]  tip "Low level read from a port"
-				button -1 "script?" [ inni "script? " ]  tip "Checks file, url, or string for a valid script header"
-				button -1 "set-modes" [ inni "set-modes " ]  tip "Changes mode settings for a port"
-				return
-				button -1 "set-net" [ inni "set-net " ]  tip "Network setup"
-				button -1 "send" [ inni "send /only /header /attach /subject /show address message " ]  tip "Send a message to an address(es)"
-				button -1 "update" [ inni "update " ]  tip "Updates the data related to a port"
+				button -1 "shift" [ inni "shift /left /logical /part   " ]  tip " Perform a bit shift operation. Right shift (decreasing) by default"
+				return 
+				button -1 "encloak" [ inni "encloak /with " ]  tip "Scrambles a string or binary based on a key"
+				button -1 "decloak" [ inni "decloak /with  " ]  tip " Descrambles the string scrambled by encloak"
+				return 
+				button -1 "dh-compute-key" [ inni "dh-compute-key  " ]  tip "Computes the resulting, negotiated key from a private/public key pair and the peer's public key"
+				button -1 "dh-generate-key" [ inni "dh-generate-key  " ]  tip "Generates a new DH private/public key pair"
+				return 
+				button -1 "dh-make-key" [ inni "dh-make-key  /generate " ]  tip "Creates a key object for DH"
+				return 
+				button -1 "dsa-generate-key" [ inni "dsa-generate-key " ]  tip "Generates a new private/public key pair"
+				button -1 "dsa-make-key" [ inni "dsa-make-key /generate" ]  tip "Creates a key object for DSA"
+				return 
+				button -1 "dsa-make-signature" [ inni "dsa-make-signature /sign " ]  tip "Creates a DSA signature"
+				return 
+				button -1 "dsa-verify-signature" [ inni "dsa-verify-signature  " ]  tip "Verifies if the DSA signature of a binary is correct"
+				return 
+				button -1 "rsa-encrypt" [ inni "rsa-encrypt /decrypt /private /padding  " ]  tip "Encrypts or decrypts some data"
+				button -1 "rsa-generate-key" [ inni "rsa-generate-key " ]  tip "Creates a new private/public key pair"
+				return 
+				button -1 "rsa-make-key" [ inni "rsa-make-key " ]  tip "Creates a key object for RSA"
 				]
-			return	
+			return 
 			group-box "File & Directory" data [
-				button -1 "change-dir" [ inni "change-dir " ]  tip "Changes the active directory path"
+				button -1 "to-local-file" [ inni "to-local-file  " ]  tip "Converts a REBOL file path to the local system file path"
+				button -1 "to-rebol-file" [ inni "to-rebol-file  " ]  tip "Converts a local system file path to a REBOL file path"
+				return 
+				button -1 "change-dir" [ inni "change-dir " ]  tip "Changes the active directory path"				
+				button -1 "cd" [ inni "cd " ]  tip "Change directory (shell shortcut function)"
 				button -1 "clean-path" [ inni "clean-path " ]  tip "Cleans-up '.' and '..' in path; returns the cleaned path"
+				return 
+				button -1 "create-link" [ inni "create-link /start /note /args " ]  tip "Creates file links"
+			
 				button -1 "delete" [ inni "delete " ]  tip "Deletes the specified file(s) or empty directory(s)"
+				button -1 "delete-dir" [ inni "delete-dir " ]  tip "Deletes a directory including all files and subdirectories"
 				return
 				button -1 "dir?" [ inni "dir? " ]  tip "Returns TRUE if a file or URL is a directory"
 				button -1 "dirize" [ inni "dirize " ]  tip "Returns a copy of the path turned into a directory"
@@ -382,29 +525,131 @@ wait 10} ] tip "Example"
 				button -1 "file?" [ inni "file? " ]  tip " Returns TRUE for file values"
 				button -1 "info?" [ inni "info? " ]  tip "The information is returned within an object that has SIZE, DATE, and TYPE words"
 				button -1 "list-dir" [ inni "list-dir " ]  tip "Prints a multi-column sorted listing of a directory"
+				return 
+				button -1 "link-relative-path" [ inni "link-relative-path " ]  tip "Remove link-root from a file path"				
+				button -1 "more" [ inni "more " ]  tip "Print file (shell shortcut function)"
 				button -1 "make-dir" [ inni "make-dir " ]  tip "Creates the specified directory. No error if already exists"
 				return
 				button -1 "modified?" [ inni "modified? " ]  tip "Returns the last modified date of a file or URL"
+				button -1 "path-thru" [ inni "path-thru " ]  tip "Return a path relative to the disk cache"
+				button -1 "rm" [ inni "rm  /any " ]  tip "Deletes the specified file(s)"
 				button -1 "rename" [ inni "rename " ]  tip "Renames a file to a new name"
+				return 
+				button -1 "pwd" [ inni "pwd " ]  tip " Prints the active directory path"
 				button -1 "save" [ inni "save /header /bmp /png /all " ]  tip "Saves a value or a block to a file or url"
+				
+				button -1 "save-user" [ inni "save-user " ]  tip " Save user.r, prompting for overwrite permission"
 				button -1 "size?" [ inni "size? " ]  tip "Returns the size of a file or URL's contents"
 				return
 				button -1 "split-path" [ inni "split-path " ]  tip "Returns a block containing path and target"
 				button -1 "suffix?" [ inni "suffix? " ]  tip "Return the suffix (ext) of a filename or url, else NONE"
+				button -1 "undirize" [ inni "undirize" ]  tip {Returns a copy of the path with any trailing "/" removed}
+				return 
 				button -1 "what-dir " [ inni "what-dir  " ]  tip "Prints the active directory path"
 				return
 				button -1 "write" [ inni "write /binary /string /append /no-wait /lines /with /allow /mode /custom destination value  " ]  tip "Writes to a file, url, or port-spec"
 				button -1 "write-io" [ inni "write-io  " ]  tip "Low level write to a port"
+				]	
+			
+			return 	
+			group-box "I/O" data [
+				button -1 "ask" [ inni "ask /hide " ]  tip "Ask the user for input"
+				button -1 "browse" [ inni "browse /only " ]  tip "Opens the default web browser"
+				button -1 "call" [ inni "call /input  /output  /error  /wait /console /shell /info /show " ]  tip "Executes a shell command to run another process"
+				button -1 "checksum" [ inni "checksum /tcp /secure /hash /mehod /key  " ]  tip "Returns a CRC or other type of checksum"
+				return 
+				button -1 "close" [ inni "close " ]  tip "Closes an open port connection"
+				return 
+				button -1 "connected?" [ inni "connected?  " ]  tip "Returns TRUE when connected to the Internet"
+				button -1 "crypt-strength?" [ inni "crypt-strength?  " ]  tip "Returns 'full, 'export or none"
+				return
+				button -1 "debase" [ inni {debase  /base "" } ]  tip "Converts a string from a different base representation to binary"
+				button -1 "decode-cgi" [ inni {decode-cgi } ]  tip "Converts CGI argument string to a block of set-words and value strings"
+				button -1 "decode-url" [ inni {decode-url } ]  tip " Decode a URL into an object"
+				
+				
+				return 
+				button -1 "dispatch" [ inni "dispatch [] " ]  tip "Wait for a block of ports. As events happen, dispatch port handler blocks"
+				button -1 "enbase" [ inni "enbase  " ]  tip "Converts a string to a different base representation"
+				
+				button -1 "get-env" [ inni "get-env " ]  tip " Gets the value of an operating system environment variable"
+				return 
+				button -1 "get-modes" [ inni "get-modes " ]  tip "Returns mode settings for a port"
+				button -1 "get-net-info" [ inni "get-net-info " ]  tip "(undocumented)"
+				
+				return
+				button -1 "input" [ inni "input /hide " ]  tip "Inputs a string from the console. New-line character is removed"
+				button -1 "input?" [ inni "input? " ]  tip "Returns TRUE if input characters are available"
+				button -1 "import-email" [ inni "import-email /multiple " ]  tip "Constructs an email object from an email message"
+				button -1 "load" [ inni "load /header /next /library /markup /all " ]  tip "Loads a file, URL, or string. Binds words to global context"
+				return 
+				button -1 "load-image" [ inni "load  /update /clear " ]  tip "Load an image through an in-memory image cache"
+				button -1 "load-stock" [ inni "load-stock  /block " ]  tip "Load and return stock image"
+				return 
+				button -1 "load-stock-block" [ inni "load-stock-block   " ]  tip "Load a block of stock image names. Return block of images"
+				button -1 "load-thru" [ inni "load-thru  /update /binary /to local-file /all /expand /check    " ]  tip "Load a net file from the disk cache"
+				button -1 "open" [ inni "open /binary /string /direct /new /write /no-wait /lines /with /allow /mode / custom /skip " ]  tip "Opens a new port connection"
+				return
+				button -1 "parse-xml" [ inni "parse-xml " ]  tip "Parses XML code and returns a tree of blocks"
+				button -1 "prin" [ inni "prin " ]  tip "Outputs a value with no line break"
+				button -1 "print" [ inni "print  " ]  tip "Outputs a value followed by a line break"
+				button -1 "query" [ inni "query  " ]  tip "Returns information about a file, port or URL"
+				return
+				button -1 "read" [ inni "read  /binary /string /direct /new /write /no-wait /lines /with /allow /mode / custom /skip " ]  tip "Reads from a file, url, or port-spec"
+				button -1 "read-io" [ inni "read-io " ]  tip "Low level read from a port"
+				button -1 "read-cgi" [ inni "read-cgi /limit " ]  tip "Read CGI data from web server input stream. Return data as string"
+				button -1 "read-net" [ inni "read-net /progress " ]  tip "Read a file from the net (web). Update progress bar. Allow abort"
+				return 
+				button -1 "read-thru" [ inni "read-thru /progress  /update /expand /check /to " ]  tip "Read a net file from thru the disk cache. Returns binary, else none on error"
+				button -1 "script?" [ inni "script? " ]  tip "Checks file, url, or string for a valid script header"
+				button -1 "set-modes" [ inni "set-modes " ]  tip "Changes mode settings for a port"
+				return
+				button -1 "set-net" [ inni "set-net " ]  tip "Network setup"
+				
+				button -1 "update" [ inni "update " ]  tip "Updates the data related to a port"
+				
+				]	
+			return	
+			group-box "Logic" data [
+				button -1 "all" [ inni "all [] " ]  tip "Shortcut for AND. Evaluates and returns at the first FALSE or NONE"
+				button -1 "and" [ inni "and " ]  tip "Returns the first value ANDed with the second"
+				button -1 "assert" [ inni "assert " ]  tip "Assert that condition is true, else throw an assertion error"
+				return 
+				button -1 "any" [ inni "any [] " ]  tip "Shortcut OR. Evaluates and returns the first value that is not FALSE or NONE"
+				button -1 "any-block?" [ inni "any-block? [] " ]  tip " Returns TRUE for any block values"
+				return 
+				button -1 "any-function?" [ inni "any-function? [] " ]  tip " Returns TRUE for any function values"
+				button -1 "any-object?" [ inni "any-object? [] " ]  tip " Returns TRUE for any object values"
+				return 
+				button -1 "any-path?" [ inni "any-path? [] " ]  tip " Returns TRUE for any path values"
+				button -1 "any-string?" [ inni "any-string? [] " ]  tip " Returns TRUE for any string values"
+				button -1 "any-type?" [ inni "any-type? [] " ]  tip " Returns TRUE for any type values"
+				return 
+				button -1 "any-word?" [ inni "any-word? [] " ]  tip " Returns TRUE for any word values"
+				return
+				button -1 "complement" [ inni "complement " ]  tip "Returns the one's complement value"
+				return				
+				button -1 "not" [ inni "not " ]  tip "Returns the logic complement"
+				button -1 "true?" [ inni "true? " ]  tip "Returns true if an expression can be used as true"
+				button -1 "!" [ inni "! " ]  tip "Returns the logic complement"
+				button -1 "or" [ inni "or " ]  tip "Returns the first value ORed with the second"
+				button -1 "xor" [ inni "xor " ]  tip "Returns the first value exclusive ORed with the second"				
 				]
 			return	
 			group-box "Math" data [
-				button -1 "*" [ inni "( * ) " ]  tip "Returns the first value multiplied by the second"
-				button -1 "**" [ inni "( ** ) " ]  tip "Returns the first number raised to the second number"
-				button -1 "+" [ inni "( + ) " ]  tip "Returns the result of adding two values"
-				button -1 "-" [ inni "( - ) " ]  tip "Returns the second value subtracted from the first"
-				button -1 "/" [ inni "( / ) " ]  tip "Returns the first value divided by the second"
-				button -1 "//" [ inni "( // ) " ]  tip "Returns the remainder of first value divided by second"
+				button -1 "*" [ inni "*  " ]  tip "Returns the first value multiplied by the second"
+				button -1 "**" [ inni "**  " ]  tip "Returns the first number raised to the second number"
+				button -1 "+" [ inni " +  " ]  tip "Returns the result of adding two values"
+				button -1 "-" [ inni " -  " ]  tip "Returns the second value subtracted from the first"
+				button -1 "/" [ inni " /  " ]  tip "Returns the first value divided by the second"
+				button -1 "//" [ inni "//  " ]  tip "Returns the remainder of first value divided by second"
 				button -1 "abs" [ inni "abs " ]  tip "Returns the absolute value"
+				return
+				button -1 ">=" [ inni ">= " ]  tip " Returns TRUE if the first value is greater than or equal to the second value"
+				button -1 ">" [ inni ">= " ]  tip " Returns TRUE if the first value is greater than the second value"
+				button -1 "=" [ inni "= " ]  tip " Returns TRUE if the first value is equal to the second value"
+				button -1 "<" [ inni "< " ]  tip " Returns TRUE if the first value is less than the second value"
+				button -1 "<=" [ inni "<= " ]  tip " Returns TRUE if the first value is less than or equal to the second value"
 				return 
 				button -1 "arccosine" [ inni "arccosine " ]  tip "Returns the trigonometric arccosine in degrees"
 				button -1 "arcsine" [ inni "arcsine " ]  tip "Returns the trigonometric arcsine in degrees"
@@ -420,19 +665,25 @@ wait 10} ] tip "Example"
 				button -1 "maximum-of" [ inni "maximum-of [] " ]  tip "Finds the largest value in a series"
 				return
 				button -1 "minimum-of" [ inni "minimum-of [] " ]  tip "Finds the smallest value in a series"
+				button -1 "mod" [ inni "mod  " ]  tip "Compute a nonnegative remainder of A divided by B"
+				button -1 "modulo" [ inni "modulo  " ]  tip "Wrapper for MOD that handles errors like REMAINDER. Negligiblevalues (compared to A and B) are rounded to zero"
+				return 
 				button -1 "negate" [ inni "negate " ]  tip "Changes the sign of a number"
 				button -1 "negative?" [ inni "negative? " ]  tip "Returns TRUE if the number is negative"
 				return
 				button -1 "odd?" [ inni "odd? " ]  tip "Returns TRUE if the number is odd"
+				button -1 "pi" [ inni "pi " ]  tip "3.14159265358979"
 				button -1 "positive?" [ inni "positive? " ]  tip "Returns TRUE if the value is positive"
-				button -1 "random" [ inni "random /seed /secure /only " ]  tip "Returns a random value of the same datatype"
+				button -1 "random" [ inni "random /seed /secure /only " ]  tip "Returns a random value of the same datatype"				
+				return 
 				button -1 "round" [ inni "round /even /down /half-down /floor /ceiling /half-ceiling /to scale"] tip "Returns the nearest integer. Halves round up (away from zero) by default."
 				return
 				button -1 "sign?" [ inni "sign? " ]  tip "Returns sign of number as 1, 0, or -1"				
 				button -1 "sine" [ inni "sine " ]  tip "Returns the trigonometric sine in degrees"
 				button -1 "square-root" [ inni "square-root " ]  tip "Returns the square root of a number"
+				return 
 				button -1 "tangent" [ inni "tangent /radians " ]  tip "Returns the trigonometric tangent in degrees"
-				return
+				
 				button -1 "zero?" [ inni "zero? " ]  tip "Returns TRUE if the number is zero"
 				]
 			return	
@@ -440,17 +691,24 @@ wait 10} ] tip "Example"
 				button -1 "ajoin" [ inni "ajoin []" ]  tip " Reduces and joins a block of values into a new string"
 				button -1 "alter" [ inni "alter series value " ]  tip "If a value is not found in a series, append it; otherwise, remove it"
 				button -1 "append" [ inni "append /only series value " ]  tip "Appends a value to the tail of a series and returns the series head"
+				button -1 "apply" [ inni "append /only func [] " ]  tip "Apply a function to a reduced block of arguments"
 				button -1 "array" [ inni "array /initial size " ]  tip "Makes and initializes a series of a given size"
+				return 
 				button -1 "at" [ inni "at series index " ]  tip "Returns the series at the specified index"
 				button -1 "back" [ inni "back " ]  tip "Returns the series at its previous position"
-				return
+				
 				button -1 "change" [ inni "change /part /only /dup series value " ]  tip "Changes a value in a series and returns the series after the change"
 				button -1 "clear" [ inni "clear " ]  tip "Removes all values from the current index series to the tail. Returns at tail"
-				button -1 "copy" [ inni "copy /part /deep " ]  tip "Returns a series copy"
+				button -1 "compose" [ inni "compose /deep /only [ ( ) ] " ]  tip "Evaluates a block of expressions, only evaluating parens, and returns a block"
+				return 
+				button -1 "copy" [ inni "copy /part /deep " ]  tip "Returns a series copy"				
+				button -1 "cp" [ inni "cp /part /deep " ]  tip "Returns a series copy"
 				button -1 "difference" [ inni "difference /case /skip " ]  tip "Return the difference of two series"
-				return
 				button -1 "exclude" [ inni "exclude " ]  tip "Return the first series less the second"
+				return 
 				button -1 "extract" [ inni "extract series width " ]  tip "Extracts a value from a series at regular intervals"
+				button -1 "empty?" [ inni "empty? " ]  tip "Returns TRUE if a series is at its tail"
+				
 				button -1 "find" [ inni "find /part /only /case /any /with /skip /match /tail /last /reverse series values " ]  tip "nds a value in a series and returns the series at the start of it"
 				button -1 "found?" [ inni "found? " ]  tip "Returns TRUE if value is not NONE"
 				return
@@ -462,30 +720,60 @@ wait 10} ] tip "Example"
 				button -1 "intersect" [ inni "intersect /case /skip " ]  tip "Create a new value that is the intersection of the two series"
 				button -1 "join" [ inni "join " ]  tip "Concatenates values"
 				button -1 "last" [ inni "last " ]  tip "Returns the last value of a series"
+				button -1 "last?" [ inni "last? " ]  tip " Returns TRUE if the series length is 1"
 				return
 				button -1 "length?" [ inni "length? " ]  tip "Returns the length of the series from the current position"
+				button -1 "map-each" [ inni "map-each /into " ]  tip " Evaluates a block for each value(s) in a series and returns them as a block"
+				button -1 "move" [ inni "move /part /skip /to " ]  tip "Move a value or span of values in a series"
+				button -1 "next" [ inni "next " ]  tip "Returns the series at its next position"
+				return 
+				button -1 "new-line" [ inni "new-line /all /skip  " ]  tip "Sets or clears the new-line marker within a block"
+				button -1 "new-line?" [ inni "new-line?  " ]  tip "Returns the state of the new-line marker within a block"
 				button -1 "offset?" [ inni "offset? " ]  tip "Returns the offset between two series positions"
 				button -1 "pick" [ inni "pick series index " ]  tip "Returns the value at the specified position in a series"
+				return 
 				button -1 "poke" [ inni "poke series index newdata " ]  tip "Returns value after changing its data at the given index"
-				return
+
 				button -1 "remove" [ inni "remove /part " ]  tip "Removes value(s) from a series and returns after the remove"
 				button -1 "remove-each" [ inni "remove-each word series body " ]  tip "Removes a value from a series for each block that returns TRUE"
-				button -1 "replace" [ inni "replace series search replace " ]  tip "Replaces the search value with the replace value within the target series"
 				return
+				button -1 "replace" [ inni "replace series search replace " ]  tip "Replaces the search value with the replace value within the target series"
+				
 				button -1 "repend" [ inni "repend /only series value " ]  tip "Appends a reduced value to a series and returns the series head"
 				button -1 "reverse" [ inni "reverse /part " ]  tip "Reverses a series"
+				button -1 "reduce" [ inni "reduce  /only " ]  tip "Evaluates an expression or block expressions and returns the result"
+				return 				
 				button -1 "select" [ inni "select /part /only /case /any /with /skip series value " ]  tip "Finds a value in the series and returns the value or series after it"
-				return
+							
 				button -1 "skip" [ inni "skip series offset " ]  tip "Returns the series forward or backward from the current position"
 				button -1 "sort" [ inni "sort /case /skip /compare /part /all /reverse " ]  tip "Sorts a series"
+				button -1 "swap" [ inni "swap " ]  tip "Swaps elements of a series. (Modifies)"
 				button -1 "tail" [ inni "tail " ]  tip "Returns the series at the position after the last value"
 				return
 				button -1 "tail?" [ inni "tail? " ]  tip "Returns TRUE if a series is at its tail"
+				button -1 "take" [ inni "take /last /part " ]  tip "Copies and removes from series. (Modifies)"
 				button -1 "union" [ inni "union /case /skip " ]  tip "Returns all elements present within two blocks or strings ignoring the duplicates"
-				button -1 "uique" [ inni "unique /case /skip " ]  tip "Returns a set with duplicate values removed"
+				button -1 "unique" [ inni "unique /case /skip " ]  tip "Returns a set with duplicate values removed"
 				return
 				button -1 "++" [ inni "++ " ]  tip "Increment an integer or series index. Return its prior value"
 				button -1 "--" [ inni "-- " ]  tip "Decrement an integer or series index. Return its prior value"
+				return
+				group-box "Data extraction" data [
+					button -1 "first" [ inni "first  " ]  tip " Returns the first  value of a series"				
+					button -1 "first+" [ inni "first+  " ]  tip "Return FIRST of series, and increment the series index"
+					button -1 "second" [ inni "second  " ]  tip " Returns the second value of a series"
+					button -1 "third" [ inni "third  " ]  tip " Returns the third value of a series"
+					return 
+					button -1 "fourth" [ inni "fourth  " ]  tip " Returns the fourth value of a series"
+					
+					button -1 "fifth" [ inni "fifth  " ]  tip " Returns the fifth  value of a series"
+					button -1 "sixth" [ inni "sixth  " ]  tip " Returns the sixth  value of a series"
+					button -1 "seventh" [ inni "seventh  " ]  tip " Returns the seventh  value of a series"
+					return 
+					button -1 "eighth" [ inni "eighth " ]  tip " Returns the eighth value of a series"
+					button -1 "ninth" [ inni "ninth  " ]  tip " Returns the ninth  value of a series"
+					button -1 "tenth" [ inni "tenth  " ]  tip " Returns the tenth value of a series"
+					]
 				]
 			return	
 			group-box "String" data [
@@ -493,77 +781,111 @@ wait 10} ] tip "Example"
 				button -1 "charset" [ inni {charset ""} ]  tip "Makes a bitset of chars"
 				button -1 "detab" [ inni "detab /size " ]  tip "Converts tabs in a string to spaces,standard tab size is 4"
 				button -1 "dehex" [ inni "dehex  " ]  tip "Converts URL-style hex encoded (%xx) strings"
-				return
+				return 
+				button -1 "deline" [ inni "deline  " ]  tip "Converts string terminators to standard format, e.g. CRLF to LF. (Modifies)"				
 				button -1 "entab" [ inni "entab /size " ]  tip "Converts spaces in a string to tabs,standard tab size is 4"
+				button -1 "enline" [ inni "enline /with " ]  tip " Converts standard string terminators to current OS format, e.g. LF to CRLF. (Modifies)"
 				button -1 "form" [ inni "form  " ]  tip "Converts a value to a string"
-				button -1 "lowercase" [ inni "lowercase " ]  tip "Converts string of characters to lowercase"				
+				return 
+				button -1 "latin1?" [ inni "latin1?  " ]  tip "Returns TRUE if value or string is in Latin-1 character range (below 256)"
+				 
+				button -1 "lowercase" [ inni "lowercase " ]  tip "Converts string of characters to lowercase"		
+				button -1 "cr" [ inni "cr " ]  tip "char CR"				
+				button -1 "lf" [ inni "lf " ]  tip "char LF"
+				button -1 "crlf" [ inni "crlf " ]  tip "char CRLF"
+				return 
+				button -1 "bs" [ inni "bs " ]  tip "char BACKSPACE"
+				
 				button -1 "mold" [ inni "mold /only /all /flat " ]  tip "Converts a value to a REBOL-readable string"
+				
+				button -1 "newline" [ inni "newline " ]  tip "New line char"
+				button -1 "newpage" [ inni "newpage " ]  tip "New page char"
+				button -1 "tab" [ inni "tab " ]  tip "TAB char"
+				return 
+				button -1 "escape" [ inni "escape " ]  tip "Escape char"
 				return
+				button -1 "parse" [ inni "parse /all /case " ]  tip "Parses a series according to rules"
 				button -1 "reform" [ inni "reform " ]  tip "Forms a reduced block and returns a string with spaces"
 				button -1 "rejoin" [ inni "rejoin " ]  tip "Reduces and returns a string without spaces"
 				button -1 "remold" [ inni "remold " ]  tip "Forms a reduced block and returns a string with spaces and sqare-bracket"
 				return
 				button -1 "trim" [ inni "trim /head /tail /auto /lines /all /with  " ]  tip "Removes whitespace from a string. Default removes from head and tail"
 				button -1 "uppercase" [ inni "uppercase /part " ]  tip "Converts string of characters to uppercase"
+				button -1 "utf?" [ inni "utf? /utf " ]  tip "Returns the UTF encoding from the BOM (byte order marker): + for BE; - for LE"
+				button -1 "invalid-utf?" [ inni "invalid-utf?  " ]  tip " Checks for proper UTF encoding and returns NONE if correct or position where the error occurred."
 				]
-			return	
+			return 
 			group-box "Time" data [	
 				button -1 "now" [ inni "now /year /month /day /time /zone /date /weekday /precise " ]  tip "Returns the current local date and time"
+				button -1 "dt" [ inni "dt " ]  tip " Delta-time - returns the time it takes to evaluate the block"
+				]		
+			return
+			group-box "Special" data [
+				button -1 "access-os" [ inni "access-os /set" ]  tip "Access to various operating system functions (getuid, setuid, getpid, kill, etc.)"
+				button -1 "desktop" [ inni "desktop " ]  tip "Display the REBOL viewtop"
+				button -1 "editor" [ inni "editor /app " ]  tip "Lauch internal editor"
+				button -1 "help" [ inni "help " ]  tip " Prints information about words and values"
+				return 
+				button -1 "install" [ inni "install " ]  tip "Install Rebol on windows"
+				return 
+				button -1 "license" [ inni "license " ]  tip "Prints the REBOL license"
+				button -1 "link?" [ inni "link? " ]  tip "Returns true if REBOL/Link capability is enabled"
+				button -1 "net-error" [ inni "net-error " ]  tip "(undocumented)"
+				return 
+				button -1 "open-events" [ inni "open-events " ]  tip "(undocumented)"
+				button -1 "parse-header" [ inni "parse-header /multiple" ]  tip " Returns a header object with header fields and their values"
+				return 
+				button -1 "parse-header-date" [ inni "parse-header-date  " ]  tip "(undocumented)"
+				button -1 "path" [ inni "path  " ]  tip "Path selection"
+				button -1 "recycle" [ inni "recycle  /off /on /torture " ]  tip " Recycles unused memory"
+				return 
+				button -1 "run" [ inni "run /as " ]  tip "  Runs the system application associated with a file"
+				button -1 "script" [ inni "script " ]  tip "Checks file, url, or string for a valid script header"
+				button -1 "secure" [ inni "secure " ]  tip " Specifies security policies (access levels and directories). Returns prior settings"
+				button -1 "set-user" [ inni "set-user" ]  tip "(undocumented)"
+				return 
+				button -1 "set-user-name" [ inni "set-user-name" ]  tip "(undocumented)"
+				button -1 "spec-of" [ inni "spec-of " ]  tip "Returns a copy of the spec of a function"
+				return 
+				button -1 "user-prefs" [ inni "user-prefs " ]  tip "Variable that contains user data"
+				button -1 "sound" [ inni "sound " ]  tip "Variable that contains suond settings"
+				button -1 "list-env" [ inni "list-env " ]  tip "Returns a block of OS environment variables (for current process)"
+				return 
+				button -1 "suffix-map" [ inni "suffix-map " ]  tip "Variable that contains suffix identifications (pdf, doc...)"
+				button -1 "speed?" [ inni "speed? /no-io /times " ]  tip " Returns approximate speed benchmarks [eval cpu memory file-io]"
+				button -1 "uninstall" [ inni "uninstall " ]  tip "Uninstall Rebol under windows"
+				return 
+				button -1 "upgrade" [ inni "upgrade " ]  tip "Download a new version of REBOL if available"
+				button -1 "viewtop" [ inni "viewtop /only " ]  tip "Display the REBOL viewtop"
+				button -1 "view-root" [ inni "view-root " ]  tip "Variables that contains Rebol user directory"
+				return 
+				button -1 "write-user" [ inni "write-user " ]  tip "Write network config to user.r file"
 				]
+						
 			]
 		]
 	"VID" [
 
 		scroll-panel 80x100 data [
 			button -1 "Example" [ inni {view layout [button "Hello World!!!" [alert "Hello word!!!"]]} ]  tip "Typical usage of VID"
-			return 
-			group-box "Special  funticons" data [
-				button -1 "brightness?" [ inni "brightness? " ]  tip "Returns the monochrome brightness (0.0 to 1.0) for a color value"
-				button -1 "caret-to-offset" [ inni "caret-to-offset  " ]  tip " Returns the offset position relative to the face of the character position"
-				return
-				button -1 "center-face" [ inni "center-face  " ] tip "Center a face on screen or relative to another face"
-				button -1 "clear-fields" [ inni "clear-fields  " ] tip "Clear all text fields faces of a layout"
-				
-				return
-				button -1 "do" [ inni "do []  " ] tip "	Evaluate a block"
-				button -1 "do-events" [ inni "do-events " ]  tip "When this function is called the program becomes event driven"
-				return
-				button -1 "dump-face" [ inni "dump-face " ]  tip "Print face info for entire pane"
-				button -1 "event?" [ inni "event? " ]  tip "Returns TRUE for event values"
-				button -1 "focus" [ inni "focus " ]  tip "Focuses key events on a specific face"
-				button -1 "hide" [ inni "hide " ]  tip " Hides a face or block of faces"
-				return
-				button -1 "in-window?" [ inni "in-window? " ]  tip " Return true if a window contains a given face"
-				button -1 "layout" [ inni "layout /size /pffset /parent /origin /styles /keep /tight " ]   tip "Return a face with a pane built from style description dialect"
-				button -1 "make-face" [ inni "make-face /styles /clones /spec /offset /keep " ]  tip "Make a face from a given style name or example face"
-				return
-				button -1 "offset-to-caret" [ inni "offset-to-caret face offset" ]  tip " Returns the offset in the face's text corresponding to the offset pair"
-				button -1 "show" [ inni "show " ] tip "Display a face or block of faces"
-				button -1 "size-text" [ inni "size-text " ]  tip " Returns the size of the text in a face"
-				return
-				button -1 "span?" [ inni "span? " ]  tip "Returns a block of [min max] bounds for all faces"
-				button -1 "stylize" [ inni "stylize " ]  tip " Return a style sheet block"
-				button -1 "unfocus" [ inni "unfocus  " ]  tip " Removes the current key event focus"
-				button -1 "unview" [ inni "unview /all /only" ]  tip " Closes window(s)"
-				return
-				button -1 "view" [ inni "view /new /offset /options /title " ]  tip "Displays a window face"
-				button -1 "viewed?" [ inni "viewed? " ]  tip "Returns TRUE if face is displayed"
-				button -1 "within?" [ inni "within? point offset size " ]  tip " Return TRUE if the point is within the rectangle bounds"
-				]
-			return
+			return 			
 			group-box "Inform" data [
 				button -1 "alert" [ inni "alert " ]  tip " Flashes an alert message to the user. Waits for a user response"
 				button -1 "flash" [ inni "flash " ]  tip "Flashes a message to the user and continues"
 				button -1 "inform" [ inni "inform /offset /title /timeout " ]  tip "Display an exclusive focus panel for alerts, dialogs, and requestors"
+				button -1 "notify" [ inni "notify " ]  tip "lashes an informational message to the user. Waits for a user response"
 				]
 			return 
 			group-box "Request" data [
 				button -1 "choose" [ inni "choose /style /window /offset /across " ]  tip "Generates a choice selector menu, vertical or horizontal"
 				button -1 "confirm" [ inni "confirm /with " ]  tip "Confirms a user choice"
+				button -1 "emailer" [ inni "emailer /to /subject " ]  tip "Pops up a quick email sender"
 				button -1 "request" [ inni "request /offset /ok /only /confirm /type /timeout " ]  tip "Requests an answer to a simple question"
 				return
 				button -1 "request-color" [ inni "request-color /color /offset  " ]  tip " Requests a color value"
 				button -1 "request-date" [ inni "request-date /offset " ]  tip "Requests a date"
+				return 
+				button -1 "request-dir" [ inni "request-dir /title /dir  /keep /offset " ]  tip "Requests a directory"
 				return
 				button -1 "request-download" [ inni "request-download /to " ]  tip "Request a file download from the net. Show progress. Return none on error"
 				button -1 "request-file" [ inni "request-file /title /file /filter /keep /omly /path /save " ]  tip "Requests a file using a popup list of files and directories"
@@ -572,7 +894,100 @@ wait 10} ] tip "Example"
 				button -1 "request-pass" [ inni "request-pass  /offset /user /only /title  " ]  tip "Requests a username and password"
 				return
 				button -1 "request-text" [ inni "request-text /offset /default  " ]   tip "Requests a text string be entered"
-				]			
+				
+				]
+			return 
+			group-box "Colors" data [
+				button -1 "aqua" aqua [ inni "aqua  " ]   
+				beg: button -1 "base-effect"   [ inni "base-effect " ]   				
+				button -1 "black" black [ inni "black  " ]   				
+				button -1 "blue" blue [ inni "blue  " ]   
+				return 
+				button -1 "brown" coal [ inni "brown  " ]   
+				button -1 "brick " brick  [ inni "brick   " ] 
+				button -1 "beige" beige [ inni "beige  " ] 
+				button -1 "base-color" base-color [ inni "base-color  " ]   
+				 return 
+				button -1 "button-color" 44.80.132 [ inni "button-color  " ]   
+				button -1 "bar-color"  bar-color  [ inni "bar-color   " ]   
+				bag: button -1 "bar-effect"   [ inni "bar-effect " ]   
+				; to apply effects on buttons
+				do [
+					append beg/effect base-effect  
+					append bag/effect bar-effect  
+					show [ beg bag]
+					]
+				return 
+				button -1 "coal" coal [ inni "coal  " ]   
+				button -1 "cyan" cyan [ inni "cyan  " ]   
+				button -1 "coffee" coffee [ inni "coffee  " ]   
+				button -1 "crimson" crimson [ inni "crimson  " ]
+				return 
+				button -1 "forest" forest [ inni "forest  " ]   
+				return 
+				button -1 "gray" gray [ inni "gray  " ]   
+				button -1 "green" green [ inni "green  " ]   
+				button -1 "gold" gold [ inni "gold  " ]   
+				
+				button -1 "ivory" ivory [ inni "ivory  " ]   
+				button -1 "khaki" khaki [ inni "khaki  " ]   
+				return 
+				button -1 "leaf" leaf [ inni "leaf  " ]   
+				button -1 "linen" linen [ inni "linen  " ]   
+				
+				button -1 "maroon " maroon  [ inni "maroon   " ]   
+				  
+				button -1 "magenta" magenta [ inni "magenta  " ]   
+				return 
+				button -1 "mint" mint [ inni "mint  " ]
+				return 				
+				button -1 "main-color" main-color [ inni "main-color  " ]   
+				button -1 "navy" navy [ inni "navy  " ]   
+				button -1 "olive" olive [ inni "olive  " ]   
+				button -1 "orange" orange [ inni "orange  " ] 
+				return 
+				button -1 "oldrab" oldrab [ inni "oldrab  " ]   
+				button -1 "over-color" over-color [ inni "over-color  " ]   
+				button -1 "pewter" pewter [ inni "pewter  " ]   
+				button -1 "purple"  purple [ inni " purple  " ]   
+				return 
+				button -1 "pink"  pink [ inni "pink  " ]   
+				button -1 "papaya"  papaya [ inni "papaya  " ]   
+				  
+				button -1 "red" red [ inni "red  " ]   
+				button -1 "rebolor" rebolor [ inni "rebolor  " ]   
+				return 
+				button -1 "reblue" reblue [ inni "reblue  " ]
+				return 
+				button -1 "silver" silver [ inni "silver  " ] 
+				button -1 "snow" snow [ inni "snow  " ] 
+				button -1 "sienna" sienna [ inni "sienna  " ] 
+				button -1 "sky" sky [ inni "sky  " ] 
+				button -1 "teal" teal [ inni "teal  " ] 	
+				return 
+				button -1 "tan" tan [ inni "tan  " ] 
+				return 
+				button -1 "violet" violet [ inni "violet  " ] 	
+				button -1 "white" white [ inni "white  " ]   
+				button -1 "water" water [ inni "water  " ]   
+				button -1 "wheat" white [ inni "wheat " ]   
+				return 
+				button -1 "yello" yello [ inni "yello " ]   
+				
+				button -1 "yellow" yellow [ inni "yellow " ]   
+				]
+			return 	
+			group-box "Rebol images" data [
+				image exclamation.gif [inni "exclamation.gif" ] 
+				image info.gif [inni "info.gif" ] 
+				image logo.gif [inni "logo.gif" ] 
+				return 
+				image stop.gif [inni "stop.gif" ] 
+				image help.gif [inni "help.gif" ] 
+				 
+				image btn-up.png [inni "btn-up.png" ] 
+				image btn-dn.png [inni "btn-dn.png" ] 
+				]	
 			return 			
 			group-box "Position" data [
 				button -1 "across" [ inni "across  " ]   tip "Put items horizontally"
@@ -614,7 +1029,13 @@ wait 10} ] tip "Example"
 				return 
 				button -1 "Video h3" [ inni "vh3  " ]   tip "Heding 3 with shadow"
 				button -1 "Video h4" [ inni "vh4  " ]   tip "Heding 4 with shadow"
-				button -1 "Label" [ inni "label  " ]   tip "bold contrasted text"								
+				button -1 "Label" [ inni "label  " ]   tip "bold contrasted text"	
+				return 
+				button -1 "base-text" [ inni "base-text  " ]   tip "text"	
+				button -1 "lab" [ inni "lab  " ]   tip "label"	
+				button -1 "lbl" [ inni "lbl  " ]   tip "label"	
+				button -1 "vlab" [ inni "vlab  " ]   tip "video label"	
+				button -1 "txt" [ inni "txt  " ]   tip "text"	
 				]
 			return 
 			group-box "Fields" data [
@@ -623,26 +1044,50 @@ wait 10} ] tip "Example"
 				button -1 "area" [ inni "area  " ]   tip "Text editing area for paragraph entry"
 				]
 			return 
+			group-box "Backgrounds" data [
+				button -1 "backdrop" [ inni "backdrop  " ]   tip "Use an image or effect to fill the background"
+				button -1 "backtile" [ inni "info  " ]   tip "Repeat an image to fill the background"
+				]
+			return 	
 			group-box "Items" data [
 				button -1 "image" [ inni "image  " ]   tip "Display a JPEG, BMP, PNG, or GIF image"
+				button -1 "logo-bar" [ inni "logo-bar  " ]   tip "A vertical Rebol ogo bar"
 				button -1 "box" [ inni "box  " ]   tip "A shortcut for drawing a rectangular box"
+				button -1 "bar" [ inni "bar  " ]   tip "An horzontal bar (change size for vertical)"
+				button -1 "btn" [ inni "btn  " ]   tip "Auto resize button"
+				return 
+				button -1 "btn-cancel" [ inni "btn-cancel  " ]   tip "Auto resize button"
+				button -1 "btn-enter" [ inni "btn-enter  " ]   tip "Auto resize button"
+				button -1 "btn-help" [ inni "btn-help  " ]   tip "Auto resize button"
+				return 
 				button -1 "icon" [ inni "icon  " ]   tip "Display a thumbnail sized image with text caption"
 				button -1 "led" [ inni "led  " ]   tip "An indicator light"
 				button -1 "anim" [ inni "anim  " ]   tip "Display an animated image"
 				button -1 "button" [ inni "button  " ]   tip "Button"
 				return 
+				button -1 "drop-down" [ inni "drop-down  " ]   tip "Drop down list"
+				return 
+				button -1 "scroller" [ inni "scroller  " ]   tip "A panel scroller, sizes give the direction"
+				 
 				button -1 "toggle" [ inni "toggle  " ]   tip "Similar to BUTTON but has a dual state"
+				button -1 "tog" [ inni "tog  " ]   tip "Similar to BUTTON but has a dual state"
 				button -1 "rotary" [ inni "rotary  " ]   tip "Similar to BUTTON but allows multiple states"
+				return 
 				button -1 "choice" [ inni "choice  " ]   tip "A pop-up button that displays multiple choices"
+				return 
 				button -1 "check" [ inni "check  " ]   tip "A check box"
+				button -1 "check-line" [ inni "check-line  " ]   tip "A check box"
+				button -1 "check-mark" [ inni "check-mark  " ]   tip "A check box"
+				return
 				button -1 "radio" [ inni "radio " ]   tip "A rounded radio button"
+				button -1 "radio-line" [ inni "radio-line " ]   tip "A rounded radio button"
 				return 
 				button -1 "arrow" [ inni "arrow  " ]   tip "An arrow button with a beveled edge"
 				button -1 "progress" [ inni "progress  " ]   tip "A sliding progress bar"
 				button -1 "slider" [ inni "slider  " ]   tip "A slider bar"
 				button -1 "panel" [ inni "panel  " ]   tip "A sub-layout"
-				button -1 "list" [ inni "list  " ]   tip "An iterated sub-layout"
 				return 
+				button -1 "list" [ inni "list  " ]   tip "An iterated sub-layout"				
 				button -1 "text-list" [ inni "text-list  " ]   tip "A simple form of the LIST style"
 				
 				
@@ -661,7 +1106,91 @@ wait 10} ] tip "Example"
 			group-box "Events" data [	
 				button -1 "sensor" [ inni "sensor  " ]   tip "An invisible face that senses mouse events"
 				button -1 "key" [ inni "key  " ]   tip "A keyboard shortcut"
-				]	
+				]
+			return 
+			group-box "Special  functions" data [
+				button -1 "brightness?" [ inni "brightness? " ]  tip "Returns the monochrome brightness (0.0 to 1.0) for a color value"
+				button -1 "caret-to-offset" [ inni "caret-to-offset  " ]  tip " Returns the offset position relative to the face of the character position"
+				return 
+				button -1 "center-face" [ inni "center-face  " ] tip "Center a face on screen or relative to another face"
+				button -1 "clear-fields" [ inni "clear-fields  " ] tip "Clear all text fields faces of a layout"
+				button -1 "confine" [ inni "confine  " ] tip "Return the correct offset to keep rectangular area in-bounds"
+				return 
+				button -1 "deflag-face" [ inni "deflag-face  " ] tip "Clears a flag in a VID face"
+				button -1 "do" [ inni "do []  " ] tip "	Evaluate a block"
+				button -1 "do-events" [ inni "do-events " ]  tip "When this function is called the program becomes event driven"
+				return 
+				button -1 "dump-face" [ inni "dump-face " ]  tip "Print face info for entire pane"
+				button -1 "dump-pane" [ inni "dump-pane " ]  tip "Print face info for entire pane"
+				button -1 "event?" [ inni "event? " ]  tip "Returns TRUE for event values"
+				return 
+				button -1 "edge-size?" [ inni "edge-size? " ]  tip "Return total size of face edge (both sides), even if missing edge"
+				button -1 "flag-face" [ inni "flag-face " ]  tip "Sets a flag in a VID face"
+				button -1 "flag-face?" [ inni "flag-face? " ]  tip "Checks a flag in a VID face"
+				return 
+				button -1 "find-window" [ inni "find-window " ]  tip "Find a face's window face"
+				button -1 "find-key-face" [ inni "find-key-face /check " ]  tip "Search faces to determine if keycode applies"
+				button -1 "focus" [ inni "focus " ]  tip "Focuses key events on a specific face"
+				return 
+				button -1 "get-face" [ inni "get-face " ]  tip "Returns the primary value of a face"
+				button -1 "get-style" [ inni "get-style " ]  tip " Get the style by its name"
+				button -1 "hide" [ inni "hide " ]  tip " Hides a face or block of faces"
+				return 
+				button -1 "hide-popup" [ inni "hide-popup /timeout" ]  tip "(undocumented)"
+				button -1 "hilight-all" [ inni "hilight-all " ]  tip "(undocumented)"
+				button -1 "hilight-text" [ inni "hilight-text " ]  tip "(undocumented)"
+				return 
+				button -1 "hsv-to-rgb" [ inni "hsv-to-rgb " ]  tip "Converts HSV (hue, saturation, value) to RGB"
+				return
+				button -1 "in-window?" [ inni "in-window? " ]  tip " Return true if a window contains a given face"
+				button -1 "inside?" [ inni "inside? " ]  tip "TRUE if both X and Y of the second pair are less than the first"
+				return 
+				button -1 "insert-event-func" [ inni "insert-event-func " ]  tip "Add a function to monitor global events. Return the func"
+				return 
+				button -1 "remove-event-func" [ inni "remove-event-func " ]  tip "Remove an event function previously added"
+				button -1 "layout" [ inni "layout /size /pffset /parent /origin /styles /keep /tight " ]   tip "Return a face with a pane built from style description dialect"
+				return 
+				button -1 "make-face" [ inni "make-face /styles /clones /spec /offset /keep " ]  tip "Make a face from a given style name or example face"
+				return
+				button -1 "offset-to-caret" [ inni "offset-to-caret face offset" ]  tip " Returns the offset in the face's text corresponding to the offset pair"
+				button -1 "outside?" [ inni "outside?" ]  tip "TRUE if either X and Y of the second pair are greater than the first"
+				button -1 "overlap?" [ inni "overlap?" ]  tip "Returns TRUE if faces overlap each other"
+				return 
+				button -1 "rgb-to-hsv" [ inni "rgb-to-hsv " ] tip " Converts RGB value to HSV (hue, saturation, value)" 
+				button -1 "reset-face" [ inni "reset-face /no-show " ] tip "Resets the primary value of a face"
+				button -1 "resize-face" [ inni "resize-face  /x /y /no-show" ] tip "Resize a face"
+				return 
+				button -1 "screen-offset?" [ inni "screen-offset? " ] tip "Returns the absolute screen offset for any face"
+				button -1 "show" [ inni "show " ] tip "Display a face or block of faces"
+				button -1 "show-popup" [ inni "show-popup  /window  /away " ] tip "(undocumented)"
+				return 
+				button -1 "size-text" [ inni "size-text " ]  tip " Returns the size of the text in a face"
+				return
+				button -1 "span?" [ inni "span? " ]  tip "Returns a block of [min max] bounds for all faces"
+				button -1 "scroll-drag" [ inni "scroll-drag /back /page " ]  tip "Move the scroller drag bar"
+				button -1 "scroll-face" [ inni "scroll-face /x /y /no-show " ]  tip "Scroll a face. Default is vertical"
+				return 
+				button -1 "scroll-para" [ inni "scroll-para  " ]  tip "Scroll a text face, given a scroller/slider face"
+				button -1 "set-face" [ inni "set-face /no-show " ]  tip "Sets the primary value of a face. Returns face object (for show)"
+				button -1 "set-font" [ inni "set-font  " ]  tip "(undocumented)"
+				return 
+				button -1 "set-para" [ inni "set-para  " ]  tip "(undocumented)"
+				button -1 "set-style" [ inni "set-style /style " ]  tip "Set a style by its name"
+				button -1 "size-text" [ inni "size-text" ]  tip "Returns the size of the text in a face"
+				return 
+				button -1 "stylize" [ inni "stylize /master /styles " ]  tip " Return a style sheet block"
+				button -1 "textinfo" [ inni "textinfo " ]  tip "Sets the line text information in an object for a face"
+				button -1 "unfocus" [ inni "unfocus  " ]  tip " Removes the current key event focus"
+				button -1 "unview" [ inni "unview /all /only" ]  tip " Closes window(s)"
+				return 
+				button -1 "unlight-text" [ inni "unlight-text" ]  tip "(undocumented)"
+				return
+				button -1 "view" [ inni "view /new /offset /options /title " ]  tip "Displays a window face"
+				button -1 "viewed?" [ inni "viewed? " ]  tip "Returns TRUE if face is displayed"
+				button -1 "within?" [ inni "within? point offset size " ]  tip " Return TRUE if the point is within the rectangle bounds"
+				return 
+				button -1 "win-offset?" [ inni "win-offset? " ]  tip "Returns the offset of a face within its window"
+				]			
 
 			]
 
@@ -677,7 +1206,12 @@ pen maroon
 box 30x30 90x90
 image logo.gif 150x100   
 line 2x2  2x150 150x100 2x2
-]]] } ]   tip "Example"
+pen green
+shape [ move 100x100
+    arc 200x100
+    line 100x100
+ ] 
+]]]} ]   tip "Example"
 			return 
 			group-box "Effects" data [
 				button -1 "anti-alias" [ inni "anti-alias  " ]   tip "Antialias on/off (on is standard)"
@@ -782,7 +1316,9 @@ line 2x2  2x150 150x100 2x2
 			
 	]
 return	
-testo: text 140 
+uso: text "USAGE:" 140
+return 
+testo: text text-color red 140
 ]
 
 ;Other windows
@@ -2788,13 +3324,13 @@ return text 100 "It is better to use the INSERT-EVENT-FUNC function to set windo
 
 ;Draw guide
 guida_DRAW: [
-	heading "REBOL/View VID Developer's Guide"
+	heading "The DRAW dialect"	
 	return
 	text italic bold "You can click on the examples to see the results"
 	return 
 	scroll-panel 120x100 data [
 
-heading "The DRAW dialect"
+
 
 return text 100 {DRAW commands are a dialect of REBOL.
 DRAW blocks consist of a sequence of commands followed by arguments. DRAW commands may set attributes and modes that are used by commands that follow.
@@ -4796,9 +5332,4 @@ send-comments:  [
 
 do-events 
 
-;These are all the Rebol commands that I still have to check and insert:
-
-
-
-;  [alert "[str]"] [alias "[word name]"] [all "[block]"] [also "[value1 value2]"] [alter "[series value /case]"] [and "[value1 value2]"] [and~ "[value1 value2]"] [any "[block]"] [any-block? "[value]"] [any-function? "[value]"] [any-object? "[value]"] [any-path? "[value]"] [any-string? "[value]"] [any-type? "[value]"] [any-word? "[value]"] [append "[series value /only]"] [apply "[func block /only]"] [arccosine "[value /radians]"] [arcsine "[value /radians]"] [arctangent "[value /radians]"] [array "[size /initial value]"] [as-binary "[string]"] [as-pair "[x y]"] [as-string "[string]"] [ascii? "[value]"] [ask "[question /hide]"] [assert "[conditions /type]"] [at "[series index]"] [attempt "[value]"] [back "[series]"] [binary? "[value]"] [bind "[words known-word /copy]"] [bind? "[words]"] [bitset? "[value]"] [block? "[value]"] [body-of "[value]"] [bound? "[words]"] [break "[/return value]"] [brightness? "[color]"] [browse "[value /only]"] [build-attach-body "[body files boundary]"] [build-markup "[content /quiet]"] [build-tag "[values]"] [call {[cmd /input in /output out /error err /wait /console /shell /info /show]}] [caret-to-offset "[face offset]"] [case "[block /all]"] [catch "[block /name word]"] [cause-error "[err-type err-id args]"] [center-face "[obj /with face]"] [change "[series value /part range /only /dup count]"] [change-dir "[dir]"] [char? "[value]"] [charset "[chars]"] [checksum {[data /tcp /secure /hash size /method word /key key-value]}] [choose {[choices function /style styl /window winf /offset xy /across]}] [clean-path "[target]"] [clear "[series]"] [clear-face "[face /no-show]"] [clear-fields "[panel]"] [close "[port]"] [closure "[spec body]"] [closure? "[value]"] [collect "[body /into output]"] [comment "[value]"] [complement "[value]"] [component? "[name]"] [compose "[value /deep /only]"] [compress "[data]"] [confine "[offset size origin margin]"] [confirm "[question /with choices]"] [connected? "[]"] [construct "[block /with object]"] [context "[blk]"] [copy "[value /part range /deep]"] [copy* "[value /part range /deep]"] [cosine "[value /radians]"] [cp "[value /part range /deep]"] [create-link "[source dest /start dir /note desc /args arg-str]"] [crypt-strength? "[]"] [cvs-date "[date]"] [cvs-version "[str]"] [datatype? "[value]"] [date? "[value]"] [dbug "[msg]"] [debase "[value /base base-value]"] [decimal? "[value]"] [decloak "[data key /with]"] [decode-cgi "[args]"] [decode-url "[url]"] [decompress "[data]"] [default "['word value]"] [deflag-face "[face 'flag]"] [dehex "[value]"] [delete "[target /any]"] [delete-dir "[dir]"] [deline "[string /lines]"] [desktop "[url /only]"] [detab "[string /size number]"] [dh-compute-key "[obj public-key]"] [dh-generate-key "[obj]"] [dh-make-key "[/generate length generator]"] [difference "[set1 set2 /case /skip size]"] [dir? "[target]"] [dirize "[path]"] [disarm "[error]"] [dispatch "[port-block]"] [divide "[value1 value2]"] [do "[value /args arg /next]"] [do-boot "[target args dependent]"] [do-browser "[code]"] [do-events "[]"] [do-face "[face value]"] [do-face-alt "[face value]"] [do-thru "[url /args arg /update /check info /boot]"] [does "[body]"] [draw "[image commands]"] [dsa-generate-key "[obj]"] [dsa-make-key "[/generate length]"] [dsa-make-signature "[/sign obj data]"] [dsa-verify-signature "[obj data signature]"] [dump-face "[face]"] [dump-obj "[obj /match pat]"] [dump-pane "[face]"] [echo "[target]"] [edge-size? "[face]"] [editor "[file /app app-word]"] [eighth "[series]"] [either "[condition true-block false-block]"] [else "[]"] [email? "[value]"] [emailer "[/to target /subject what]"] [empty? "[series]"] [enbase "[value /base base-value]"] [encloak "[data key /with]"] [enline "[series /with end-of-line]"] [entab "[string /size number]"] [equal? "[value1 value2]"] [error? "[value]"] [even? "[number]"] [event? "[value]"] [exclude "[set1 set2 /case /skip size]"] [exists-thru? "[url /check info]"] [exists? "[target]"] [exit "[]"] [exp "[power]"] [extract {[series width /index pos /default value /into output]}] [fifth "[series]"] [file? "[value]"] [find {[series value /part range /only /case /any /with wild /skip size /match /tail /last /reverse]}] [find-key-face "[face keycode]"] [find-window "[face]"] [first "[series]"] [first+ "['word]"] [flag-face "[face 'flag]"] [flag-face? "[face 'flag]"] [flash "[val /with face /offset xy]"] [focus "[face /no-show]"] [for "['word start end bump body]"] [forall "['word body]"] [foreach "['word data body]"] [forever "[body]"] [form "[value]"] [forskip "['word skip-num body]"] [found? "[value]"] [fourth "[series]"] [free "[value]"] [func "[spec body]"] [funct "[spec body /with object]"] [function "[spec vars body]"] [function? "[value]"] [get "[word /any]"] [get-env "[var]"] [get-face "[face]"] [get-modes "[target modes]"] [get-net-info "[]"] [get-path? "[value]"] [get-style "[name /styles ss]"] [get-word? "[value]"] [greater-or-equal? "[value1 value2]"] [greater? "[value1 value2]"] [halt "[]"] [has "[locals body]"] [hash? "[value]"] [head "[series]"] [head? "[series]"] [help "['word]"] [hide "[face /show]"] [hide-popup "[/timeout]"] [hilight-all "[face]"] [hilight-text "[face begin end]"] [hsv-to-rgb "[hsv]"] [if "[condition then-block /else else-block]"] [image? "[value]"] [import-email "[data /multiple parent]"] [in "[object word]"] [in-dir "[dir block]"] [in-window? "[window face]"] [index? "[series /xy]"] [info? "[target]"] [inform "[panel /offset where /title ttl /timeout time]"] [input "[/hide]"] [input? "[]"] [insert "[series value /part range /only /dup count]"] [insert-event-func "[funct]"] [inside? "[p1 p2]"] [install "[]"] [integer? "[value]"] [intersect "[ser1 ser2 /case /skip size]"] [issue? "[value]"] [join "[value rest]"] [last "[series]"] [latin1? "[value]"] [launch {[value /reboot /uninstall /link url /quit /secure-cmd /as-is /install]}] [launch-thru "[url /update /check info]"] [layout {[specs /size pane-size /offset where /parent new /origin pos /styles list /keep /tight]}] [length? "[series]"] [lesser-or-equal? "[value1 value2]"] [lesser? "[value1 value2]"] [library? "[value]"] [license "[]"] [link-app? "[]"] [link-relative-path "[file]"] [link? "[]"] [list-dir "[dir]"] [list? "[value]"] [lit-path? "[value]"] [lit-word? "[value]"] [load "[source /header /next /library /markup /all]"] [load-image "[image-file /update /clear]"] [load-stock "[name /block size]"] [load-stock-block "[block]"] [load-thru {[url /update /binary /to local-file /all /expand /check info]}] [local-request-file "[parms]"] [log-10 "[value]"] [log-2 "[value]"] [log-e "[value]"] [logic? "[value]"] [loop "[count block]"] [lowercase "[string /part range]"] [make "[type spec]"] [make-dir "[path /deep]"] [make-face {[style /styles ss /clone /size wh /spec blk /offset xy /keep]}] [map-each "['word data body /into output]"] [map? "[value]"] [max "[value1 value2]"] [maximum "[value1 value2]"] [maximum-of "[series /skip size /case]"] [min "[value1 value2]"] [minimum "[value1 value2]"] [minimum-of "[series /skip size /case]"] [mod "[a b]"] [modified? "[target]"] [modulo "[a b]"] [mold "[value /only /all /flat]"] [money? "[value]"] [move "[source offset /part length /skip size /to]"] [multiply "[value1 value2]"] [native "[spec]"] [native? "[value]"] [negate "[number]"] [negative? "[number]"] [net-error "[info]"] [new-line "[block value /all /skip size]"] [new-line? "[block]"] [next "[series]"] [ninth "[series]"] [none? "[value]"] [not "[value]"] [not-equal? "[value1 value2]"] [notify "[str]"] [now {[/year /month /day /time /zone /date /weekday /yearday /precise]}] [number? "[value]"] [object? "[value]"] [odd? "[number]"] [offset-to-caret "[face offset]"] [offset? "[series1 series2]"] [op? "[value]"] [open {[spec /binary /string /direct /seek /new /read /write /no-wait /lines /with end-of-line /allow access /mode args /custom params /skip length]}] [open-events "[]"] [or "[value1 value2]"] [or~ "[value1 value2]"] [outside? "[p1 p2]"] [overlap? "[f1 f2]"] [pair? "[value]"] [paren? "[value]"] [parse "[input rules /all /case]"] [parse-email-addrs "[data]"] [parse-header "[parent data /multiple]"] [parse-header-date "[data]"] [parse-xml "[code]"] [path "[value selector]"] [path-thru "[url]"] [path? "[value]"] [pick "[series index]"] [poke "[value index data]"] [port? "[value]"] [positive? "[number]"] [power "[number exponent]"] [prin "[value]"] [print "[value]"] [probe "[value]"] [protect "[value]"] [protect-system "[]"] [q "[/return value]"] [query "[target /clear]"] [quit "[/return value]"] [quote "[:value]"] [random "[value /seed /secure /only]"] [read {[source /binary /string /direct /no-wait /lines /part size /with end-of-line /mode args /custom params /skip length]}] [read-cgi "[/limit size]"] [read-io "[port buffer length]"] [read-net "[url /progress callback]"] [read-thru {[url /progress callback /update /expand /check info /to local-file]}] [recycle "[/off /on /torture]"] [reduce "[value /only words]"] [refinement? "[value]"] [reflect "[value field]"] [reform "[value]"] [rejoin "[block]"] [remainder "[value1 value2]"] [remold "[value]"] [remove "[series /part range]"] [remove-each "['word data body]"] [remove-event-func "[funct]"] [rename "[old new]"] [repeat "['word value body]"] [repend "[series value /only]"] [replace "[target search replace /all /case /tail]"] [request {[str /offset xy /ok /only /confirm /type icon /timeout time]}] [request-color "[/color clr /offset xy]"] [request-date "[/offset xy /date when]"] [request-dir "[/title title-line /dir where /keep /offset xy]"] [request-download "[url /to local-file]"] [request-file {[/title title-line button-text /file name /filter filt /keep /only /path /save]}] [request-list "[titl alist /offset xy]"] [request-pass {[/offset xy /user username /only /title title-text]}] [request-text "[/offset xy /title title-text /default str]"] [resend "[to from message]"] [reset-face "[face /no-show]"] [resize-face "[face size /x /y /no-show]"] [return "[value]"] [reverse "[value /part range]"] [rgb-to-hsv "[rgb]"] [round {[n /even /down /half-down /floor /ceiling /half-ceiling /to scale]}] [routine? "[value]"] [rsa-encrypt "[obj data /decrypt /private /padding padding-type]"] [rsa-generate-key "[obj length generator]"] [rsa-make-key "[]"] [run "[file /as suffix]"] [same? "[value1 value2]"] [save "[where value /header header-data /bmp /png /all]"] [save-user "[]"] [scalar? "[value]"] [screen-offset? "[face]"] [script? "[value]"] [scroll-drag "[face /back /page]"] [scroll-face "[face offset /x /y /no-show]"] [scroll-para "[tf sf]"] [second "[series]"] [secure "['level]"] [select {[series value /part range /only /case /any /with wild /skip size]}] [send {[address message /only /header header-obj /attach files /subject subj /show]}] [series? "[value]"] [set "[word value /any /pad]"] [set-face "[face value /no-show]"] [set-font "[aface 'word val]"] [set-modes "[target modes]"] [set-net "[settings]"] [set-para "[aface 'word val]"] [set-path? "[value]"] [set-style "[name new-face /styles ss]"] [set-user "[]"] [set-user-name "[str]"] [set-word? "[value]"] [seventh "[series]"] [shift "[data bits /left /logical /part length]"] [show "[face]"] [show-popup "[face /window window-face /away]"] [sign? "[number]"] [sine "[value /radians]"] [sixth "[series]"] [size-text "[face]"] [size? "[target]"] [skip "[series offset]"] [sort {[series /case /skip size /compare comparator /part length /all /reverse]}] [source "['word]"] [span? "[pane /part count]"] [spec-of "[value]"] [split-path "[target]"] [square-root "[value]"] [stats {[/pools /types /series /frames /recycle /evals /clear]}] [strict-equal? "[value1 value2]"] [strict-not-equal? "[value1 value2]"] [string? "[value]"] [struct? "[value]"] [stylize "[specs /master /styles styls]"] [subtract "[value1 value2]"] [suffix? "[path]"] [swap "[series1 series2]"] [switch "[value cases /default case /all]"] [tag? "[value]"] [tail "[series]"] [tail? "[series]"] [take "[value /part length /last]"] [tangent "[value /radians]"] [tenth "[series]"] [textinfo "[face line-info line]"] [third "[series]"] [throw "[value /name word]"] [throw-error "[err-type err-id args]"] [throw-on-error "[blk]"] [time? "[value]"] [title-of "[value]"] [to "[type spec]"] [to-binary "[value]"] [to-bitset "[value]"] [to-block "[value]"] [to-char "[value]"] [to-closure "[value]"] [to-datatype "[value]"] [to-date "[value]"] [to-decimal "[value]"] [to-email "[value]"] [to-error "[value]"] [to-file "[value]"] [to-function "[value]"] [to-get-path "[value]"] [to-get-word "[value]"] [to-hash "[value]"] [to-hex "[value]"] [to-idate "[date]"] [to-image "[value]"] [to-integer "[value]"] [to-issue "[value]"] [to-itime "[time]"] [to-library "[value]"] [to-list "[value]"] [to-lit-path "[value]"] [to-lit-word "[value]"] [to-local-file "[path]"] [to-logic "[value]"] [to-map "[value]"] [to-money "[value]"] [to-none "[value]"] [to-pair "[value]"] [to-paren "[value]"] [to-path "[value]"] [to-port "[value]"] [to-rebol-file "[path]"] [to-refinement "[value]"] [to-relative-file "[file /no-copy /as-rebol /as-local]"] [to-set-path "[value]"] [to-set-word "[value]"] [to-string "[value]"] [to-tag "[value]"] [to-time "[value]"] [to-tuple "[value]"] [to-typeset "[value]"] [to-url "[value]"] [to-word "[value]"] [trace "[mode /net /function]"] [trim "[series /head /tail /auto /lines /all /with str]"] [true? "[val]"] [try "[block]"] [tuple? "[value]"] [type? "[value /word]"] [types-of "[value]"] [typeset? "[value]"] [undirize "[path]"] [unfocus "[]"] [uninstall "[]"] [union "[set1 set2 /case /skip size]"] [unique "[set /case /skip size]"] [unless "[condition block]"] [unlight-text "[]"] [unprotect "[value]"] [unset "[word]"] [unset? "[value]"] [until "[block]"] [unview "[/all /only face]"] [update "[port]"] [upgrade "[]"] [uppercase "[string /part range]"] [url? "[value]"] [Usage "[]"] [use "[words body]"] [utf? "[data]"] [value? "[value]"] [values-of "[value]"] [vbug "[msg]"] [view {[view-face /new /offset xy /options opts /title text]}] [viewed? "[face]"] [viewtop "[url /only]"] [wait "[value /all]"] [what "[]"] [what-dir "[]"] [what-ho "[]"] [while "[cond-block body-block]"] [win-offset? "[face]"] [within? "[point offset size]"] [word? "[value]"] [words-of "[value]"] [write {[destination value /binary /string /direct /append /no-wait /lines /part size /with end-of-line /allow access /mode args /custom params]}] [write-io "[port buffer length]"] [write-user "[]"] [xor "[value1 value2]"] [xor~ "[value1 value2]"] [zero? "[number]"]
 

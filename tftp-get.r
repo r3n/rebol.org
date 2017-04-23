@@ -3,9 +3,9 @@ REBOL [
     Date: 3-Aug-2003
     Version: 1.0.1
     File: %tftp-get.r
-    Author: "Norman Deppenbroek"
+    Author: "ND"
     Purpose: {get file from tftp daemon, could be modified as scheme, needs perfection on write to disk!}
-    Email: rebolinth@nodep.dds.nl
+    Email: none
     library: [
         level: 'intermediate 
         platform: 'all 

@@ -9,7 +9,6 @@ REBOL [
         license: 'mit
         see-also: none
         ]
-
     Title: "Qtask Markup Language - XHTML emitter"
     File: %xhtml-emitter.r
     Purpose: {
@@ -19,7 +18,7 @@ REBOL [
     Author: "Gabriele Santilli"
     EMail: giesse@rebol.it
     License: {
-        Copyright (c) 2006 Prolific Publishing, Inc.
+        Copyright (c) 2006-2007 Prolific Publishing, Inc.
 
         Permission is hereby granted, free of charge, to any person obtaining a
         copy of this software and associated documentation files (the
@@ -40,8 +39,8 @@ REBOL [
         TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
         SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     }
-    Date: 21-Aug-2006
-    Version: 2.16.1
+    Date: 18-Jan-2007
+    Version: 2.19.1
     History: [
         17-Feb-2006 1.1.0 "History start" 
         22-Feb-2006 1.2.0 {Fixed problem with closing block commands inside paragraphs} 
@@ -56,7 +55,7 @@ REBOL [
         18-Mar-2006 1.11.0 {Cells are now replaced instead of appended to; row 1 defaults to header} 
         18-Mar-2006 1.12.0 "Added args handling for =row and =column" 
         18-Mar-2006 1.13.0 "Changed box options" 
-        18-Mar-2006 1.14.0 "Added =’ as comment, changed =1* to =1' etc." 
+        18-Mar-2006 1.14.0 "Added =&#146; as comment, changed =1* to =1' etc." 
         18-Mar-2006 1.15.0 "Now =link does internal (Qwiki) links too" 
         18-Mar-2006 1.16.0 "Fixed a bug in table nesting" 
         20-Mar-2006 1.17.0 "Changed lists inside tables" 
@@ -119,7 +118,10 @@ REBOL [
         16-Jun-2006 2.13.1 "Links now emit a class too" 
         29-Jun-2006 2.14.1 "Fixed crash with options* being none in some cases" 
         21-Jul-2006 2.15.1 "Fixed bug with =table[borderless]" 
-        21-Aug-2006 2.16.1 "First public release (with rel. 2.0i of QML)"
+        21-Aug-2006 2.16.1 "First public release (with rel. 2.0i of QML)" 
+        23-Nov-2006 2.17.1 "Merged changes from Qtask" 
+        22-Dec-2006 2.18.1 "Reduced size of indent for =>" 
+        18-Jan-2007 2.19.1 {Changed HTML escaping: now assumes UTF-8 source text, and emits HTML-encoded ASCII}
     ]
 ]
 
@@ -153,9 +155,9 @@ xhtml-emitter: context [
             | 
             'section opt [
                 into [
-                    'toc (emit <div class="toc">) 
+                    'toc (emit {<table border="0" cellpadding="0" cellspacing="0" class="toc"><tr><td>}) 
                     opt [into ['title opts (emit ["<h1" options ">"]) any inline-level (emit </h1>)]] (emit <ul>) 
-                    any toc-headers (emit "</ul></div>")
+                    any toc-headers (emit "</ul></td></tr></table>")
                 ]
             ] any block-level 
             | 
@@ -169,9 +171,35 @@ xhtml-emitter: context [
             | 
             'justify opts (emit [{<div style="text-align: justify;"} options ">"]) any block-level (emit </div>) 
             | 
-            'escape (emit "<pre>^/") string! set val string! (emit [escape-html val </pre>]) to end 
+            'escape "HTML" set val string! (
+                emit [
+                    <div class="html-escape"> 
+                    filter-html val 
+                    </div>
+                ]
+            ) to end 
             | 
-            'command copy val [string! skip] (emit [<p> "=" escape-html val/1] if val/2 [emit ["[" escape-html mold/only val/2 "]"]] emit </p>)
+            'escape "MakeDoc" set val string! (
+                emit [
+                    <div class="makedoc"> 
+                    filter-html second gen-html/options scan-doc val [no-toc no-template no-title no-indent no-nums] 
+                    </div>
+                ]
+            ) to end 
+            | 
+            'escape (emit {<div class="pre"><pre>
+}) string! set val string! (emit-encoded val emit "</pre></div>") to end 
+            | 
+            'command copy val [string! skip] (
+                emit "<p>=" 
+                emit-encoded val/1 
+                if val/2 [
+                    emit "[" 
+                    emit-encoded mold/only val/2 
+                    emit "]"
+                ] 
+                emit </p>
+            )
         ] 
         | 
         error
@@ -179,12 +207,15 @@ xhtml-emitter: context [
     emit: func [value] [
         repend out value
     ] 
+    emit-encoded: func [string] [
+        encode-entities out string
+    ] 
     val: none 
     emit-header: func [level style opts] [
         emit ["<h" level style] 
         if in opts 'id [emit [{ id="header-} opts/id {"}]] 
         emit ">" 
-        if in opts 'number [emit escape-html copy opts/number]
+        if in opts 'number [emit-encoded opts/number]
     ] 
     opts: [
         'opts set val block! (options: make-style val) | (options: "" options*: context [])
@@ -231,14 +262,14 @@ xhtml-emitter: context [
         float ["float: " float ";"] 
         fontsize ["font-size: " fontsize "pt;"] 
         height ["height: " either money? height [to integer! second height] [height] either money? height ["%"] ["px"] ";"] 
-        image ["background-image: url('" escape-html replace/all image "'" "" "');"] 
+        image ["background-image: url('" escape-html replace/all copy image "'" "" "');"] 
         image-halign ["background-position: " image-valign " " image-halign ";"] 
         image-tiling [
             "background-repeat: " select [
                 both "repeat" vertical "repeat-y" horizontal "repeat-x" neither "no-repeat"
             ] image-tiling ";"
         ] 
-        indent ["margin-left: " 48 * indent "pt;"] 
+        indent ["margin-left: " 20 * indent "pt;"] 
         italic "font-style: italic;" 
         outline-color (
             either outline-style = 'borderless [
@@ -315,7 +346,7 @@ xhtml-emitter: context [
             helvetica ["Arial, Helvetica, sans-serif"] 
             courier ["Courier New, Courier, fixed"]
         ] [
-            escape-html replace/all val ";" ""
+            escape-html replace/all copy val ";" ""
         ]
     ] 
     box-rule: [
@@ -324,39 +355,27 @@ xhtml-emitter: context [
     ] 
     emit-rounded-box: func [box] [
         emit [
+            <div class="boxouter"> 
             {<table class="} either box/shadow? ["roundshadow"] ["rounded"] {"} box/outerstyle ">" 
             <tr> 
-            <td class="topleft"> "&nbsp;" </td> 
-            <td class="topleftplus"> "&nbsp;" </td> 
-            <td class="top"> "&nbsp;" </td> 
-            <td class="toprightminus"> "&nbsp;" </td> 
-            <td class="topright"> "&nbsp;" </td> 
+            <td class="topleft"> </td> 
+            <td class="top"> </td> 
+            <td class="topright"> </td> 
             </tr> <tr> 
-            <td class="topleftminus"> "&nbsp;" </td> 
-            <td> </td> <td> </td> <td> </td> 
-            <td class="toprightplus"> "&nbsp;" </td> 
-            </tr> <tr> 
-            <td class="left"> "&nbsp;" </td> 
-            <td> </td> 
+            <td class="left"> </td> 
             {<td class="box"} box/innerstyle ">"
         ] 
         parse box/contents box-rule 
         emit [
             </td> 
-            <td> </td> 
-            <td class="right"> "&nbsp;" </td> 
+            <td class="right"> </td> 
             </tr> <tr> 
-            <td class="bottomleftplus"> "&nbsp;" </td> 
-            <td> </td> <td> </td> <td> </td> 
-            <td class="bottomrightminus"> "&nbsp;" </td> 
-            </tr> <tr> 
-            <td class="bottomleft"> "&nbsp;" </td> 
-            <td class="bottomleftminus"> "&nbsp;" </td> 
-            <td class="bottom"> "&nbsp;" </td> 
-            <td class="bottomrightplus"> "&nbsp;" </td> 
-            <td class="bottomright"> "&nbsp;" </td> 
+            <td class="bottomleft"> </td> 
+            <td class="bottom"> </td> 
+            <td class="bottomright"> </td> 
             </tr> 
-            </table>
+            </table> 
+            </div>
         ]
     ] 
     emit-fw-rounded-box: func [box] [
@@ -375,7 +394,7 @@ xhtml-emitter: context [
     ] 
     emit-shadow-box: func [box] [
         emit [
-            {<table class="shadow"} box/outerstyle ">" 
+            {<div class="boxouter"><table class="shadow"} box/outerstyle ">" 
             <tr> <td class="topleft"> </td> <td class="top"> </td> <td class="topright"> </td> </tr> 
             <tr> <td class="left"> </td> {<td class="box"} box/innerstyle ">"
         ] 
@@ -384,7 +403,7 @@ xhtml-emitter: context [
             </td> <td class="right"> </td> </tr> 
             <tr> <td class="bottomleft"> </td> <td class="bottom"> </td> 
             <td class="bottomright"> </td> </tr> 
-            </table>
+            </table> </div>
         ]
     ] 
     emit-fw-shadow-box: func [box] [
@@ -402,9 +421,9 @@ xhtml-emitter: context [
         ]
     ] 
     emit-generic-box: func [box] [
-        emit [{<div class="box"} box/style ">"] 
+        emit [{<div class="boxouter"><div class="box"} box/style ">"] 
         parse box/contents box-rule 
-        emit </div>
+        emit "</div></div>"
     ] 
     emit-box: func [args style' contents' /local box] [
         args: make context [
@@ -450,7 +469,7 @@ xhtml-emitter: context [
         res
     ] 
     inline-level: [
-        set val string! (emit escape-html val) 
+        set val string! (emit-encoded val) 
         | 
         into [
             'bold (emit <strong>) any inline-level (emit </strong>) 
@@ -461,7 +480,9 @@ xhtml-emitter: context [
             | 
             'link opts (
                 if in options* 'target [
-                    emit [{<a href="} escape-html options*/target {"} options] 
+                    emit {<a href="} 
+                    emit-encoded options*/target 
+                    emit [{"} options] 
                     if in options* 'class [
                         emit [{ class="} options*/class {"}] 
                         if options*/class = "external" [
@@ -474,22 +495,30 @@ xhtml-emitter: context [
             | 
             'alink opts (
                 if in options* 'target [
-                    emit [{<a href="#} escape-html options*/target {"} options { class="internal">}]
+                    emit {<a href="#} 
+                    emit-encoded options*/target 
+                    emit [{"} options { class="internal">}]
                 ]
             ) any inline-level (emit </a>) 
             | 
             'font opts (emit ["<span" options ">"]) any inline-level (emit </span>) 
             | 
-            'image opts (if in options* 'src [emit [{<img src="} escape-html options*/src {"} options ">"]]) 
+            'image opts (if in options* 'src [emit {<img src="} emit-encoded options*/src emit [{"} options ">"]]) 
             | 
-            'anchor opts (if in options* 'name [emit [{<a name="} escape-html options*/name {"} options ">"]]) any inline-level (emit </a>) 
+            'anchor opts (
+                if in options* 'name [
+                    emit {<a name="} 
+                    emit-encoded options*/name 
+                    emit [{"} options ">"]
+                ]
+            ) any inline-level (emit </a>) 
             | 
-            'command copy val [string! skip] (emit ["=" escape-html val/1] if val/2 [emit ["[" escape-html mold/only val/2 "]"]])
+            'command copy val [string! skip] (emit "=" emit-encoded val/1 if val/2 [emit "[" emit-encoded mold/only val/2 emit "]"])
         ] 
         | 
         error
     ] 
-    error: [here: skip (print ["error" copy/part trim/lines mold here 80])] 
+    error: [here: skip] 
     liclass: "" 
     bullets: [
         into [
@@ -556,7 +585,7 @@ xhtml-emitter: context [
     ] 
     emit-toclink: func [style opts] [
         emit ["<li" style {><p><a href="#header-} opts/id {">}] 
-        if in opts 'number [emit escape-html copy opts/number]
+        if in opts 'number [emit-encoded opts/number]
     ] 
     table-rule: [(space: all [in options* 'force-space options*/force-space]) 
         opt [into ['columns any [into ['column opts (emit ["<col" options ">"])]]]] (emit <tbody>) 
@@ -578,11 +607,297 @@ xhtml-emitter: context [
         ] (emit </tbody>)
     ] 
     td: "td" span: "" space: none 
-    escape-html: func [text [string! url!]] [
-        foreach [from to] html-codes [replace/all text from to] 
-        text
+    entity-map: [
+        #{22} "quot" 
+        #{26} "amp" 
+        #{3C} "lt" 
+        #{3E} "gt" 
+        #{C2A0} "nbsp" 
+        #{C2A1} "iexcl" 
+        #{C2A2} "cent" 
+        #{C2A3} "pound" 
+        #{C2A4} "curren" 
+        #{C2A5} "yen" 
+        #{C2A6} "brvbar" 
+        #{C2A7} "sect" 
+        #{C2A8} "uml" 
+        #{C2A9} "copy" 
+        #{C2AA} "ordf" 
+        #{C2AB} "laquo" 
+        #{C2AC} "not" 
+        #{C2AD} "shy" 
+        #{C2AE} "reg" 
+        #{C2AF} "macr" 
+        #{C2B0} "deg" 
+        #{C2B1} "plusmn" 
+        #{C2B2} "sup2" 
+        #{C2B3} "sup3" 
+        #{C2B4} "acute" 
+        #{C2B5} "micro" 
+        #{C2B6} "para" 
+        #{C2B7} "middot" 
+        #{C2B8} "cedil" 
+        #{C2B9} "sup1" 
+        #{C2BA} "ordm" 
+        #{C2BB} "raquo" 
+        #{C2BC} "frac14" 
+        #{C2BD} "frac12" 
+        #{C2BE} "frac34" 
+        #{C2BF} "iquest" 
+        #{C380} "Agrave" 
+        #{C381} "Aacute" 
+        #{C382} "Acirc" 
+        #{C383} "Atilde" 
+        #{C384} "Auml" 
+        #{C385} "Aring" 
+        #{C386} "AElig" 
+        #{C387} "Ccedil" 
+        #{C388} "Egrave" 
+        #{C389} "Eacute" 
+        #{C38A} "Ecirc" 
+        #{C38B} "Euml" 
+        #{C38C} "Igrave" 
+        #{C38D} "Iacute" 
+        #{C38E} "Icirc" 
+        #{C38F} "Iuml" 
+        #{C390} "ETH" 
+        #{C391} "Ntilde" 
+        #{C392} "Ograve" 
+        #{C393} "Oacute" 
+        #{C394} "Ocirc" 
+        #{C395} "Otilde" 
+        #{C396} "Ouml" 
+        #{C397} "times" 
+        #{C398} "Oslash" 
+        #{C399} "Ugrave" 
+        #{C39A} "Uacute" 
+        #{C39B} "Ucirc" 
+        #{C39C} "Uuml" 
+        #{C39D} "Yacute" 
+        #{C39E} "THORN" 
+        #{C39F} "szlig" 
+        #{C3A0} "agrave" 
+        #{C3A1} "aacute" 
+        #{C3A2} "acirc" 
+        #{C3A3} "atilde" 
+        #{C3A4} "auml" 
+        #{C3A5} "aring" 
+        #{C3A6} "aelig" 
+        #{C3A7} "ccedil" 
+        #{C3A8} "egrave" 
+        #{C3A9} "eacute" 
+        #{C3AA} "ecirc" 
+        #{C3AB} "euml" 
+        #{C3AC} "igrave" 
+        #{C3AD} "iacute" 
+        #{C3AE} "icirc" 
+        #{C3AF} "iuml" 
+        #{C3B0} "eth" 
+        #{C3B1} "ntilde" 
+        #{C3B2} "ograve" 
+        #{C3B3} "oacute" 
+        #{C3B4} "ocirc" 
+        #{C3B5} "otilde" 
+        #{C3B6} "ouml" 
+        #{C3B7} "divide" 
+        #{C3B8} "oslash" 
+        #{C3B9} "ugrave" 
+        #{C3BA} "uacute" 
+        #{C3BB} "ucirc" 
+        #{C3BC} "uuml" 
+        #{C3BD} "yacute" 
+        #{C3BE} "thorn" 
+        #{C3BF} "yuml" 
+        #{C592} "OElig" 
+        #{C593} "oelig" 
+        #{C5A0} "Scaron" 
+        #{C5A1} "scaron" 
+        #{C5B8} "Yuml" 
+        #{C692} "fnof" 
+        #{CB86} "circ" 
+        #{CB9C} "tilde" 
+        #{CE91} "Alpha" 
+        #{CE92} "Beta" 
+        #{CE93} "Gamma" 
+        #{CE94} "Delta" 
+        #{CE95} "Epsilon" 
+        #{CE96} "Zeta" 
+        #{CE97} "Eta" 
+        #{CE98} "Theta" 
+        #{CE99} "Iota" 
+        #{CE9A} "Kappa" 
+        #{CE9B} "Lambda" 
+        #{CE9C} "Mu" 
+        #{CE9D} "Nu" 
+        #{CE9E} "Xi" 
+        #{CE9F} "Omicron" 
+        #{CEA0} "Pi" 
+        #{CEA1} "Rho" 
+        #{CEA3} "Sigma" 
+        #{CEA4} "Tau" 
+        #{CEA5} "Upsilon" 
+        #{CEA6} "Phi" 
+        #{CEA7} "Chi" 
+        #{CEA8} "Psi" 
+        #{CEA9} "Omega" 
+        #{CEB1} "alpha" 
+        #{CEB2} "beta" 
+        #{CEB3} "gamma" 
+        #{CEB4} "delta" 
+        #{CEB5} "epsilon" 
+        #{CEB6} "zeta" 
+        #{CEB7} "eta" 
+        #{CEB8} "theta" 
+        #{CEB9} "iota" 
+        #{CEBA} "kappa" 
+        #{CEBB} "lambda" 
+        #{CEBC} "mu" 
+        #{CEBD} "nu" 
+        #{CEBE} "xi" 
+        #{CEBF} "omicron" 
+        #{CF80} "pi" 
+        #{CF81} "rho" 
+        #{CF82} "sigmaf" 
+        #{CF83} "sigma" 
+        #{CF84} "tau" 
+        #{CF85} "upsilon" 
+        #{CF86} "phi" 
+        #{CF87} "chi" 
+        #{CF88} "psi" 
+        #{CF89} "omega" 
+        #{CF91} "thetasym" 
+        #{CF92} "upsih" 
+        #{CF96} "piv" 
+        #{E28082} "ensp" 
+        #{E28083} "emsp" 
+        #{E28089} "thinsp" 
+        #{E2808C} "zwnj" 
+        #{E2808D} "zwj" 
+        #{E2808E} "lrm" 
+        #{E2808F} "rlm" 
+        #{E28093} "ndash" 
+        #{E28094} "mdash" 
+        #{E28098} "lsquo" 
+        #{E28099} "rsquo" 
+        #{E2809A} "sbquo" 
+        #{E2809C} "ldquo" 
+        #{E2809D} "rdquo" 
+        #{E2809E} "bdquo" 
+        #{E280A0} "dagger" 
+        #{E280A1} "Dagger" 
+        #{E280A2} "bull" 
+        #{E280A6} "hellip" 
+        #{E280B0} "permil" 
+        #{E280B2} "prime" 
+        #{E280B3} "Prime" 
+        #{E280B9} "lsaquo" 
+        #{E280BA} "rsaquo" 
+        #{E280BE} "oline" 
+        #{E28184} "frasl" 
+        #{E282AC} "euro" 
+        #{E28491} "image" 
+        #{E28498} "weierp" 
+        #{E2849C} "real" 
+        #{E284A2} "trade" 
+        #{E284B5} "alefsym" 
+        #{E28690} "larr" 
+        #{E28691} "uarr" 
+        #{E28692} "rarr" 
+        #{E28693} "darr" 
+        #{E28694} "harr" 
+        #{E286B5} "crarr" 
+        #{E28790} "lArr" 
+        #{E28791} "uArr" 
+        #{E28792} "rArr" 
+        #{E28793} "dArr" 
+        #{E28794} "hArr" 
+        #{E28880} "forall" 
+        #{E28882} "part" 
+        #{E28883} "exist" 
+        #{E28885} "empty" 
+        #{E28887} "nabla" 
+        #{E28888} "isin" 
+        #{E28889} "notin" 
+        #{E2888B} "ni" 
+        #{E2888F} "prod" 
+        #{E28891} "sum" 
+        #{E28892} "minus" 
+        #{E28897} "lowast" 
+        #{E2889A} "radic" 
+        #{E2889D} "prop" 
+        #{E2889E} "infin" 
+        #{E288A0} "ang" 
+        #{E288A7} "and" 
+        #{E288A8} "or" 
+        #{E288A9} "cap" 
+        #{E288AA} "cup" 
+        #{E288AB} "int" 
+        #{E288B4} "there4" 
+        #{E288BC} "sim" 
+        #{E28985} "cong" 
+        #{E28988} "asymp" 
+        #{E289A0} "ne" 
+        #{E289A1} "equiv" 
+        #{E289A4} "le" 
+        #{E289A5} "ge" 
+        #{E28A82} "sub" 
+        #{E28A83} "sup" 
+        #{E28A84} "nsub" 
+        #{E28A86} "sube" 
+        #{E28A87} "supe" 
+        #{E28A95} "oplus" 
+        #{E28A97} "otimes" 
+        #{E28AA5} "perp" 
+        #{E28B85} "sdot" 
+        #{E28C88} "lceil" 
+        #{E28C89} "rceil" 
+        #{E28C8A} "lfloor" 
+        #{E28C8B} "rfloor" 
+        #{E28CA9} "lang" 
+        #{E28CAA} "rang" 
+        #{E2978A} "loz" 
+        #{E299A0} "spades" 
+        #{E299A3} "clubs" 
+        #{E299A5} "hearts" 
+        #{E299A6} "diams"
     ] 
-    html-codes: ["&" "&amp;" "<" "&lt;" ">" "&gt;" {"} "&quot;"] 
+    ascii: exclude charset [#"^@" - #"^~"] special: charset {"&<>} 
+    seq2: charset [#"À" - #"ß"] 
+    seq3: charset [#"à" - #"ï"] 
+    seq4: charset [#"ð" - #"÷"] 
+    seq: charset [#"^(80)" - #"¿"] 
+    encode-entities: func [output text /local mk1 mk2] [
+        parse/all text [
+            some [
+                mk1: some ascii mk2: (insert/part tail output mk1 mk2) 
+                | 
+                copy mk1 [special | seq2 seq | seq3 2 seq | seq4 3 seq] (encode-entity output to binary! mk1) 
+                | 
+                skip
+            ]
+        ]
+    ] 
+    encode-entity: func [output char [binary!] /local nm] [
+        if nm: select entity-map char [
+            insert insert insert tail output "&" nm ";" 
+            exit
+        ] 
+        do pick [
+            none [
+                char: char/1 and 31 * 64 + (char/2 and 63)
+            ] [
+                char: char/1 and 15 * 4096 + (char/2 and 63 * 64) + (char/3 and 63)
+            ] [
+                char: char/1 and 7 * 262144 + (char/2 and 63 * 4096) + (char/3 and 63 * 64) + (char/4 and 63)
+            ]
+        ] length? char 
+        insert insert insert tail output "&#" char ";"
+    ] 
+    escape-html: func [text /local result] [
+        result: make string! length? text 
+        encode-entities result text 
+        result
+    ] 
     generate: func [qml-doc [block!]] [
         out: make string! 1024 
         parse qml-doc qml-rule 

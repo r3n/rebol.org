@@ -1,9 +1,9 @@
 Rebol [
-	Title: "Unit converter" 
+	Title: "Magic 8 ball" 
 	Author: "Massimiliano Vessi" 
 	Email: maxint@tiscali.it 
-	Date: 25-March-2011
-	version: 1.0.5 
+	Date: 25-Jun-2010 
+	version: 2.0.6
 	file: %magic8.r 
 	Purpose: {It's the old Magic 8 ball game, 
 	think your question and ask the game. } 
@@ -54,7 +54,9 @@ view  layout [
     button "ASK" [   
 	a: pick  sentences (random 20)
 	answer/text: a
+	answer/color: random 255.255.255
 	show answer
 	]
     answer: vtext "________________________" 
     ]
+

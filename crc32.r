@@ -1,8 +1,10 @@
 REBOL [
     Title: "CRC-32"
-    Date: 6-Apr-2006
-    Version: 1.1.0
+    Date: 30-Jan-2013
+    Version: 1.2.0
+    Type: module
     File: %crc32.r
+    Exports: [crc-32]
     Author: "Vincent Ecuyer"
     Purpose: "CRC32 checksum function"
     Usage: {
@@ -68,6 +70,8 @@ REBOL [
         type: [module function rebcode]
         domain: [math security]
         tested-under: [
+            core 2.101.0.2.5 on [Macintosh osx-x86]
+            view 2.7.8.2.5 on [Macintosh osx-x86]
             core 2.6.2.3.1 on [Win2K]
             view 1.3.2.3.1 on [Win2K]
             view 1.3.61.3.1 on [Win2K]
@@ -80,10 +84,12 @@ REBOL [
         see-also: %rebzip.r
     ]
     History: [
-        1.0.0 26-3-2006
-            "First published version"
-        1.1.0 6-4-2006
+        1.2.0 30-Jan-2013
+            "r3 compatibility and module declaration"
+        1.1.0 6-Apr-2006
             "/direct mode, /continue and /integer added"
+        1.0.0 26-Mar-2006
+            "First published version"
     ]
 ]
 ctx-crc-32: context [
@@ -147,7 +153,7 @@ ctx-crc-32: context [
     update-crc: either value? 'rebcode [
         rebcode [
             "Returns the data crc."
-            data [any-string!] "Data to checksum"
+            data [any-string! binary!] "Data to checksum"
             crc [integer!] "Initial value"
             /local char i
         ][
@@ -170,7 +176,7 @@ ctx-crc-32: context [
     ][
         func [
             "Returns the data crc."
-            data [any-string!] "Data to checksum"
+            data [any-string! binary!] "Data to checksum"
             crc [integer!] "Initial value"
         ][
             foreach char data [
@@ -199,7 +205,8 @@ ctx-crc-32: context [
         crc: -1 xor to-integer any [crc 0]
         if file   [error? try [close file  ] file:   none]
         if buffer [error? try [clear buffer] buffer: none]
-        either all [direct any-file? source] [
+		
+        either all [direct any-file? source system/version < 2.100.0] [
             file: source: open/direct/read/binary source
             buffer: make binary! buffer-size
             until [
@@ -213,12 +220,23 @@ ctx-crc-32: context [
             close source
             buffer: file: source: none
         ][
-            if any-file? source [source: read/binary source]
-            crc: update-crc source crc
+            if any-file? source [
+                source: either system/version < 2.100.0 [
+                    read/binary source
+                ][
+                    read source
+                ]
+            ]
+            if string? source [source: to-binary source]
+            either any [continue system/version < 2.100.0] [
+                crc: update-crc source crc
+            ][
+                crc: -1 xor checksum/method source 'crc32
+            ]
             source: none
         ]
         either integer [-1 xor crc][
-            load join "#{" [to-hex -1 xor crc "}"]
+            copy at tail load join "#{" [next mold to-hex -1 xor crc "}"] -4
         ]
     ]
 ]

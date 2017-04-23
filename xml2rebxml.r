@@ -1,10 +1,10 @@
 REBOL [
 	Title:		"XML to RebXML Converter"
-	Date:		06-Nov-2005
-	Version:	1.1.2
+	Date:		08-Nov-2005
+	Version:	1.2.0
 	File:		%xml2rebxml.r
 	Author:		"John Niclasen"
-	Rights:		{Copyright © John Niclasen, NicomSoft 2005}
+	Rights:		{Copyright Â© John Niclasen, NicomSoft 2005}
 	Purpose:	{Convert XML to RebXML block structure.}
 
 	Comment:	{
@@ -12,6 +12,8 @@ REBOL [
 	}
 
 	History: [
+		1.2.0	[08-11-2005 JN {Added suppport for &quot; and &apos; in Attribute.
+								Added preservation of comments.}]
 		1.1.2	[06-11-2005 JN {Fixed bug with multi comments.}]
 		1.1.1	[24-02-2005 JN {Changed EmptyElemTag from # to a slash: /}]
 		1.1.0	[23-02-2005 JN {Added support for namespace-tags.
@@ -32,14 +34,17 @@ REBOL [
 	]
 ]
 
+output:	make block! 1000
 context [
+
+preserve-comments: false
 
 lit-slash: to-lit-word "/"
 
 block-begin: to word! "["
 block-end: to word! "]"
 attrs:	make block! 20
-output:	make block! 1000
+;output:	make block! 1000
 input-str: none
 att-data: data: temp: tag-name: att-name: enc-name: c: none
 
@@ -67,7 +72,20 @@ document:		[prolog element to end]
 
 AttValue:		["'" copy att-data to "'" skip | {"} copy att-data to {"} skip]
 
-Comment:		["<!--" thru "-->"]
+Comment:		["<!--" copy data thru "-->" (
+	if preserve-comments [
+		insert tail output join "<!--" data
+		;either empty? output [
+			;insert output join "<!--" data
+		;][
+			;either string? last output [
+				;append first back tail output join "<!--" data
+			;][
+				;insert tail output join "<!--" data
+			;]
+		;]
+	])
+]
 
 PI:				["<?" thru "?>"]
 
@@ -117,6 +135,8 @@ element:		[
 
 s-tag:			["<" copy tag-name Name any [S Attribute] opt S]
 Attribute:		[copy att-name Name Eq AttValue (
+		replace/all att-data "&quot;" #"^""
+		replace/all att-data "&apos;" #"'"
 		replace/all att-data "&gt;" #">"
 		replace/all att-data "&lt;" #"<"
 		replace/all att-data "&amp;" #"&"
@@ -158,7 +178,10 @@ unicode:		[any [
 set 'xml2rebxml func [
 	"Parses XML code and returns as block structure"
 	code [string!] "XML code to parse"
+	/preserve "Preserve comments"
 ][
+	preserve-comments: either preserve [true] [false]
+
 	clear output
 	enc-name: none
 
@@ -172,6 +195,7 @@ set 'xml2rebxml func [
 		parse/all/case code unicode
 	]
 
+	clear output
 	parse/all/case input-str document
 	load mold output
 ]

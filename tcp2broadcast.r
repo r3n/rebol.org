@@ -3,9 +3,9 @@ REBOL [
     Date: 22-Aug-2001
     Version: 1.0.0
     File: %tcp2broadcast.r
-    Author: "Norman Deppenbroek"
+    Author: "ND"
     Purpose: "tcp input forwarded/redirected as udp broadcast"
-    Email: rebolinth@nodep.dds.nl
+    Email: none
     library: [
         level: 'intermediate 
         platform: 'all 

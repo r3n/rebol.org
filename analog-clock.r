@@ -1,16 +1,17 @@
 REBOL [
 	File: %analog-clock.r
-	Date: 11-Jun-2005
+	Date: 28-Jan-2013
 	Title: "Analog Clock"
-	Version: 1.1.0
+	Version: 1.2.0
 	Author: "Vincent Ecuyer"
 	Purpose: {Colorful clock with analog display}
 	Notes: {
 	    VID isn't used in this demo: all faces are made with make face [...]
     }
     History: [
-        1.0.0 [28-Dec-2003 "First version"]
+        1.2.0 [28-Jan-2013 "MacOSX digital display fix"]
         1.1.0 [11-Jun-2005 "View 1.3 compatibility & Digital display fix"]
+        1.0.0 [28-Dec-2003 "First version"]
     ]
  	Library: [
  	        level: 'advanced
@@ -18,10 +19,9 @@ REBOL [
  	        type: [demo tool]
  	        domain: [sdk GUI]
  	        tested-under: [
-            	view 1.2.1.3.1  on [Win2K]
-            	view 1.2.1.1.1  on [AmigaOS30]
-            	view 1.3.0.3.1  on [Win2K]
-            	face 1.2.47.3.1 on [Win2K]
+            	view 2.7.8.2.5 on [Macintosh osx-x86]
+            	view 2.7.8.3.1 on [Win2K]
+            	face 2.7.6.2.5 on [Macintosh osx-x86]
  	        ]
  	        support: none
  	        license: 'public-domain
@@ -114,7 +114,12 @@ l: make face [
             size: 201x25
             color: 0.0.0
             edge: none
-            font: make face/font [style: 'bold size: 16]
+            text: either system/version/4 = 2 [date][none]
+            font: make face/font [
+                align: 'left valign: 'bottom 
+                style: 'bold size: 16 
+                color: 255.255.0
+            ]
             effect: [draw [
                 font dgt/font
                 text 5x5 hour text text-pos date
@@ -125,12 +130,24 @@ l: make face [
                     if a = 'time [
                         insert clear hour form now/time
                         if 7 > length? hour [insert tail hour ":00"]
-                        date: form now/date
+                        insert clear date form now/date
                         l/changes: 'text show l
                     ]
                 ]
             ]
         ]
+        hre: make face [
+            offset: 0x201
+            size: 186x25
+            font: make face/font [
+                align: 'right valign: 'bottom 
+                style: 'bold size: 16 
+                color: 255.255.0
+            ]
+            color: none
+            edge: none
+            text: either system/version/4 = 2 [hour][none]
+        ] 
     ]
 ]
 
@@ -140,6 +157,18 @@ insert system/view/screen-face/feel/event-funcs func [face event][
         resize clk/size: l/size - 0x25
         dgt/size/x: l/size/x
         dgt/offset: clk/size * 0x1
+        if dgt/text [
+            either l/size/x < 170 [
+                hre/size/x: l/size/x
+                hre/text: ""
+                dgt/font/align: 'center
+            ][
+                hre/size/x: l/size/x - 15
+                hre/text: hour
+                dgt/font/align: 'left
+            ]
+            hre/offset: clk/size * 0x1
+        ]
         text-pos/x: max 80 dgt/size/x - 100
         show l
     ]

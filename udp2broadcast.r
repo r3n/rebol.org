@@ -3,9 +3,9 @@ REBOL [
     Date: 21-Aug-2001
     Version: 1.0.1
     File: %udp2broadcast.r
-    Author: "Norman Deppenbroek"
+    Author: "ND"
     Purpose: "udp input forwarded/redirected as broadcast"
-    Email: rebolinth@nodep.dds.nl
+    Email: none
     library: [
         level: 'intermediate 
         platform: 'all 

@@ -3,19 +3,21 @@ REBOL [
 	File: %periodictable.r
 	Author: "Brian Tiffin"
 	Date: 14-Jan-2007
-	Version: 0.9.3
+	Version: 0.9.4
 	Purpose: {Display a periodic table of the elements as REBOL buttons}
 	History: [
+            0.9.4 28-Jul-2007 btiffin "Added close button, experiment with plugin header field"
 	    0.9.3 14-Jan-2007 btiffin "Idea for a draw effect generator from the orbits block..."
 	    0.9.2 13-Jan-2007 btiffin "first addition - added seperate color for lanthanides and actinides, professionalized 'help about' title"
 	    0.9.1 13-Jan-2007 btiffin "first correction - comment on elements missed weight and orbits"
         0.9.0 13-Jan-2007 btiffin "First cut - mistakes non-zero probable"
 	]
 	Library: [
-		level: 'beginner
-		platform: 'all
+		level: 'intermediate
+		platform: [all plugin]
 		type: [demo fun]
 		domain: [gui scientific]
+                plugin: [size: 740x252]
 		tested-under: [view 1.3.2.4.2 Debian GNU/Linux 4.0 RC 1] 
 		support: none
 		license: GPL
@@ -244,7 +246,10 @@ pte: [
 	at 100x40
     clicked: info white 265x40 font [style: 'bold]	
 	at 559x15
-	img: box 161x161 effect [] 
+	img: box 161x161 effect []
+        at 588x200
+        logo: image logo.gif 
+
 ]
 
 ; build the buttons, positioned by group and period, pop out the lanthanide/actinide block by adding some pixels
@@ -256,6 +261,7 @@ foreach [el sym name pos series state weight orbits] elements [
     	'btn 29x22 to-string sym series 'font compose [color: (state)] compose/deep [set-face clicked (blurb)  img/effect: [(spins orbits)]  show img]
 	]
 ]
+append pte [at 29x199 btn "Quit" [quit]]
 
 ; and view it
 view layout pte	

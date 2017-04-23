@@ -1,6 +1,6 @@
 REBOL [
    File: %desktop-shifter.r
-   Name: [{Daniel Sirotzke} {Izkata}]
+   Name: {Izkata}
    Version: 1.0
    Date: 2-Feb-2008
    Title: "Desktop Shifter"

@@ -1,12 +1,12 @@
 REBOL [
     Title: "IFF dialect"
-    Date: 25-Mar-2005
-    Version: 1.0.1
+    Date: 16-Jan-2013
+    Version: 1.1.0
     File: %iff-dialect.r
     Author: "Vincent Ecuyer"
     Purpose: {Electronic Arts Interchange File Format (IFF) dialect}
     Usage: {
-        >> do %iff-dialect
+        >> do %iff-dialect.r
         >> iff-binary: make-iff [dialect block]
         >> write/binary destination iff-binary
 
@@ -49,6 +49,7 @@ REBOL [
         ]
     }
     History: [
+        1.1.0 16-Jan-2013 "Added REBOL3 compatibility"
         1.0.1 25-Mar-2005 "Bugfix: infinite loop with empty blocks"
         1.0.0 31-Dec-2003 "First version"
     ]
@@ -58,8 +59,8 @@ REBOL [
         type: [dialect module]
         domain: [dialects files parse]
         tested-under: [
-        	view 1.2.1.3.1 on [Win2K]
-        	core 2.5.0.1.1 on [AmigaOS30]
+        	core 2.7.8.2.5   on [Macintosh osx-x86]
+        	core 2.101.0.2.5 on [Macintosh osx-x86]
         ]
         support: none
         license: 'public-domain
@@ -68,10 +69,15 @@ REBOL [
 ]
 
 ctx-iff: context [
-    to-bin: func [value][load join "#{" [to-hex value "}"]]
+    to-bin: func [value] either system/version > 2.100.0 [
+        [copy skip tail to-binary value -4]
+    ][
+        [load join "#{" [to-hex value "}"]]
+    ]
     v: none
     out: copy #{}
     offsets: copy []
+    pos: none
     clear-all: does [clear out clear offsets v: none]
     prep-size: does [
         append offsets length? out
@@ -96,7 +102,7 @@ ctx-iff: context [
     iff-form: [
         (prep-size)
         id
-        [end | into [any [[form-type iff-form] | chunk]]]
+        [end | pos: block! :pos into [any [[form-type iff-form] | chunk]]]
         (set-size)
     ]
     id: [[
@@ -107,7 +113,7 @@ ctx-iff: context [
     chunk: [
         id
         (prep-size)
-        [end | into [any data] | data]
+        [end | pos: block! :pos into [any data] | data]
         (set-size)
         (if odd? length? out [append out #{00}])
     ]
@@ -115,13 +121,17 @@ ctx-iff: context [
         'word set v integer! (append out skip to-bin v 2) |
         'long set v integer! (append out to-bin v) |
         'byte set v integer! (append out to-char v) |
+        set v binary!        (append out v) |
         set v any-string!    (append out to-binary v) |
         set v image!         (append out to-binary v) |
         set v integer!       (append out to-binary to-char v) |
         set v tuple!         (append out to-binary v) |
         'none                |
-        into [any data]      |
+        pos: block! :pos into [any data] |
         set v 1 skip         (append out to-binary v)
+    ]
+    if system/version > 2.100.0 [
+        throw-on-error: :do
     ]
     set 'make-iff func [
         "Build an IFF binary"
@@ -132,7 +142,7 @@ ctx-iff: context [
             clear-all
             if not parse compose/deep value iff [
                 clear-all
-                make error! "Bad IFF definition"
+                do make error! "Bad IFF definition"
             ]
             value: copy out
             clear-all

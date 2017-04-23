@@ -1,7 +1,7 @@
 REBOL [
   Title: "string encoding utilities"
-  Version: 1.2.2
-  Date: 10-Jul-2010
+  Version: 1.2.3
+  Date: 25-Jul-2015
   Author: "Peter W A Wood"
   File: %str-enc-utils.r
   Purpose: {
@@ -1301,7 +1301,7 @@ utf-8-to-iso-8859-15: make function! [
   ][
     ;; Define the additional rules to be applied before the default rules
     extra-rules: [
-       {^(E2)^(82)^(A0)}     (insert tail output-string #"^(80)") |
+       {^(E2)^(82)^(AC)}     (insert tail output-string #"^(80)") |
        {^(E2)^(80)^(9A)}     (insert tail output-string #"^(82)") |
        {^(C6)^(92)}          (insert tail output-string #"^(83)") |
        {^(E2)^(80)^(9E)}     (insert tail output-string #"^(84)") |
@@ -1320,8 +1320,8 @@ utf-8-to-iso-8859-15: make function! [
        {^(E2)^(80)^(9D)}     (insert tail output-string #"^(94)") |
        {^(E2)^(80)^(A2)}     (insert tail output-string #"^(95)") |
        {^(E2)^(80)^(93)}     (insert tail output-string #"^(96)") |
-       {^(E2)^(84)^(84)}     (insert tail output-string #"^(97)") |
-       {^(CB)^(96)}          (insert tail output-string #"^(98)") |
+       {^(E2)^(80)^(94)}     (insert tail output-string #"^(97)") |
+       {^(CB)^(9C)}          (insert tail output-string #"^(98)") |
        {^(E2)^(84)^(A2)}     (insert tail output-string #"^(99)") |
        {^(C5)^(A1)}          (insert tail output-string #"^(9A)") |
        {^(E2)^(80)^(BA)}     (insert tail output-string #"^(9B)") |
@@ -1354,7 +1354,7 @@ utf-8-to-iso-8859-15: make function! [
   ][
     ;; translation table
     trans-table: compose [
-      "^(80)" {^(E2)^(82)^(A0)}
+      "^(80)" {^(E2)^(82)^(AC)}
       "^(81)" (replacement-char)
       "^(82)" {^(E2)^(80)^(9A)}
       "^(83)" {^(C6)^(92)}
@@ -1377,8 +1377,8 @@ utf-8-to-iso-8859-15: make function! [
       "^(94)" {^(E2)^(80)^(9D)}
       "^(95)" {^(E2)^(80)^(A2)}
       "^(96)" {^(E2)^(80)^(93)}
-      "^(97)" {^(E2)^(84)^(84)}
-      "^(98)" {^(CB)^(96)}
+      "^(97)" {^(E2)^(80)^(94)}
+      "^(98)" {^(CB)^(9C)}
       "^(99)" {^(E2)^(84)^(A2)}
       "^(9A)" {^(C5)^(A1)}
       "^(9B)" {^(E2)^(80)^(BA)}

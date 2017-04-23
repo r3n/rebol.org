@@ -1,6 +1,5 @@
 REBOL [
    Author: {Izkata}
-   Email: Izkata@Comcast.net
    File: %entity.r
    Date: 29-Jul-2005
    Title: {Beware the Entity}

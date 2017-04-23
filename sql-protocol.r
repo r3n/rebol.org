@@ -3,7 +3,7 @@ REBOL [
     Date: 05-Mar-2006
     Author: ["Marco"]
     Version: 0.6.8
-    Email: [marco@adyreb.org]
+    Email: [mvri@bluewin.ch]
     File: %sql-protocol.r
     Category: [database]
     Library: [
@@ -12,7 +12,7 @@ REBOL [
         type: [dialect protocol tool]
         domain: [database db dialects protocol scheme sql]
         tested-under: [win]
-        support: marco@adyreb.org
+        support: mvri@bluewin.ch
         license: 'public-domain
         see-also: none
     ]
@@ -2202,12 +2202,12 @@ sql-ctx: context [
         from [block!]
         where [block!]
         port [port!]
-        /local body words set-words £item1 spec
+        /local body words set-words Â£item1 spec
     ][
         spec: copy* [cols]
         body: copy* []
         foreach [item1 item2] from [
-            append spec reduce [item1 £item1: to-word rejoin ['£ item1]]
+            append spec reduce [item1 Â£item1: to-word rejoin ['Â£ item1]]
             words: copy* []
             set-words: copy* []
             foreach item get-cols item2 port [
@@ -2217,7 +2217,7 @@ sql-ctx: context [
             ]
             insert body compose/deep [
                 (to-set-word item1) context [(set-words) none]
-                (to-set-word £item1) bind [(words)] in (item1) 'self
+                (to-set-word Â£item1) bind [(words)] in (item1) 'self
                 bind cols in (item1) 'self
                 bind where in (item1) 'self
             ]
@@ -2252,12 +2252,12 @@ sql-ctx: context [
             ]
         ][
             set [item1 item2] from
-            item: to-word join '£ index
+            item: to-word join 'Â£ index
             compose/deep [
                 use [(item)][
                     (to-set-word item) get-data (to-lit-word item2) port
                     while [not tail? (item)][
-                        set (to-word rejoin ['£ item1]) first (item)
+                        set (to-word rejoin ['Â£ item1]) first (item)
                         (make-do-loop cols skip from 2 where port index + 1)
                         (to-set-word item) next (item) 
                     ]

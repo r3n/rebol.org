@@ -1,11 +1,11 @@
 rebol [
 	; -- basic rebol header --
 	file:       %slim.r
-	version:    0.9.11
-	date:       2006-10-19
+	version:    0.9.13
+	date:       2009-03-07
 	title:      "SLiM - STEEL | Library Manager"
 	author:     "Maxim Olivier-Adlhoch"
-	copyright:  "Copyright (c) 2002-2006, Maxim Olivier-Adlhoch"
+	copyright:  "Copyright (c) 2002-2009, Maxim Olivier-Adlhoch"
 	
 	; -- remark stuff --
 	status:     'release-candidate
@@ -30,7 +30,7 @@ rebol [
 
 	todo: http://www.pointillistic.com/open-REBOL/moa/steel/slim/slim-to-do.html
 
-	
+	changes: {}
 	
 	license:    {Copyright (c) 2004-2006, Maxim Olivier-Adlhoch
 
@@ -49,6 +49,13 @@ rebol [
 		FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ]
 		ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN 
 		THE SOFTWARE.}
+
+	History: {
+		v0.9.12 - 2008-08-12/02:46:53 (max)
+			-load, save, read, and write are now left as-is and 'xxx-resource versions created: load-resource, save-resource, etc.
+		v0.9.13 - 2009-03-07/2:54:44 (MOA)
+			-errors when loading libs no longer use the /error refinement, allows console-quiet reloading from the net.
+	}
 ]
 
 
@@ -206,7 +213,10 @@ SLiM: make object! [
 				object! [line: mold/all data]
 			][line: mold data]
 			
-			print rejoin [ vtabs line]
+			line: rejoin [""  vtabs line]
+
+			print replace/all line "^/" join "^/" vtabs 
+
 			if in [insert vtabs "^-"]
 			
 		]
@@ -221,7 +231,7 @@ SLiM: make object! [
 	;-    VON()
 	;----
 	von: func [/tags lit-tags ][
-		verbose: on
+		verbose: true
 		if tags [
 			unless block? vtags [
 				vtags: copy []
@@ -242,7 +252,7 @@ SLiM: make object! [
 		either tags [
 			vtags: exclude vtags dark-tags
 		][
-			verbose: off
+			verbose: false
 		]		
 	]
 	
@@ -254,6 +264,7 @@ SLiM: make object! [
 		/always
 		/error
 		/tags ftags
+		/with xtext "data you wish to print as a comment after the bracket!"
 		/return rdata ; use the supplied data as our return data, allows vout to be placed at end of a function
 	][
 		;if error [always: true]
@@ -269,9 +280,9 @@ SLiM: make object! [
 				]
 			]
 		][
-			vprint/out/always/tags  "]" ftags
+			vprint/out/always/tags  either xtext [join "] ; " xtext]["]"] ftags
 		][
-			vprint/out/tags "]" ftags
+			vprint/out/tags either xtext [join "] ; " xtext]["]"] ftags
 		]
 		; this mimics print's functionality where not supplying return value will return unset!, causing an error in a func which expects a return value.
 		either return [
@@ -290,7 +301,6 @@ SLiM: make object! [
 		/error
 		/tags ftags [block!]
 	][
-		;if error [always: true]
 		verbose-count: verbose-count + 1
 		if any [
 			error
@@ -455,7 +465,7 @@ SLiM: make object! [
 				do lib-file
 				lib: self/cached? lib-name
 			][
-				vprint/error ["SLiM/open() ERROR : " lib-name " does not describe an accessible (loadable) library module (paths: " paths ")"]
+				vprint ["SLiM/open() ERROR : " lib-name " does not describe an accessible (loadable) library module (paths: " paths ")"]
 			]
 		]
 		
@@ -488,8 +498,6 @@ SLiM: make object! [
 		vprint/out "]"
 		return first reduce [lib lib: none]
 	]
-
-
 
 	
 	;----------------
@@ -534,10 +542,12 @@ SLiM: make object! [
 				;just allocate object space
 				rsrc-path: copy what-dir
 				dir-path: copy what-dir
-				read: none
-				write: none
-				load: none
-				save: none
+				
+				read-resource: none
+				write-resource: none
+				load-resource: none
+				save-resource: none
+				
 				; temporarily set these to the slim print tools... 
 				; once the object is built, they will be bound to that object
 				verbose: false
@@ -547,7 +557,7 @@ SLiM: make object! [
 				von: get in lib 'von
 				voff: get in lib 'voff
 				vout: get in lib 'vout
-				v??: get in lib 'vout
+				v??: get in lib 'v??
 				vflush: get in lib 'vflush
 				vconsole: none
 				vtags: none
@@ -572,15 +582,15 @@ SLiM: make object! [
 			; encompass I/O so that we add the /resource refinement.
 			;-         extend I/O ('read/'write/'load/'save)
 			pre-io: compose/deep [
-				if resource [ if (bind 'rsrc-path in lib 'header) [tmp: what-dir change-dir (bind 'rsrc-path in lib 'header)]]
+				 if (bind 'rsrc-path in lib 'header) [tmp: what-dir change-dir (bind 'rsrc-path in lib 'header)]
 			]
 			post-io: compose/deep [
-				if resource [if  (bind 'rsrc-path in lib 'header) [change-dir tmp]]
+				if  (bind 'rsrc-path in lib 'header) [change-dir tmp]
 			]
-			lib/read: encompass/args/pre/post 'read [/resource /local tmp] pre-io post-io           
-			lib/write: encompass/silent/args/pre/post 'write [/resource /local tmp] pre-io post-io
-			lib/load: encompass/args/pre/post 'load [/resource /local tmp] pre-io post-io
-			lib/save: encompass/silent/args/pre/post 'save [/resource /local tmp] pre-io post-io
+			lib/read-resource: encompass/args/pre/post 'read [ /local tmp] pre-io post-io           
+			lib/write-resource: encompass/silent/args/pre/post 'write [/local tmp] pre-io post-io
+			lib/load-resource: encompass/args/pre/post 'load [ /local tmp] pre-io post-io
+			lib/save-resource: encompass/silent/args/pre/post 'save [/local tmp] pre-io post-io
 			
 			;--------------
 			; auto-init feature of library if it needs dynamic data (like files to load or opening network ports)...
@@ -635,12 +645,18 @@ SLiM: make object! [
 		"returns true if you supply a valid library module object, else otherwise."
 		lib
 	][
-		if object! = type? lib [
-			if in lib 'header [
-				if in lib/header 'slim-version [
+		either object! = type? lib [
+			either in lib 'header [
+				either in lib/header 'slim-version [
 					return true
+				][
+					vprint "STEEL|SLiM/lib?(): ERROR!! lib file must specify a 'slim-version:"
 				]
+			][
+				vprint "STEEL|SLiM/lib?(): ERROR!! supplied lib file has no header!"
 			]
+		][
+			vprint "STEEL|SLiM/lib?(): ERROR!! supplied data is not an object!"
 		]
 		return false
 	]
@@ -670,7 +686,7 @@ SLiM: make object! [
 			insert tail libs lib/header/slim-name
 			insert tail libs lib
 		][
-			vprint/error "STEEL|SLiM/cache(): ERROR!! supplied argument is not a library object!"
+			vprint "STEEL|SLiM/cache(): ERROR!! supplied argument is not a library object!"
 		]
 	]
 
@@ -737,7 +753,7 @@ SLiM: make object! [
 		/lib
 		/local path item paths disk-paths
 	][
-		vprint ["SLiM/find-path(" file ")"]
+		vin ["SLiM/find-path(" file ")"]
 		
 		if next [
 			vprint/error "SLiM/find-path() /next refinement not yet supported"
@@ -785,6 +801,9 @@ SLiM: make object! [
 				]
 			]
 		]
+		
+		vprint path
+		vout
 		return path
 	]
 	
@@ -825,9 +844,9 @@ SLiM: make object! [
 					]
 					if not success [
 						either package-success [
-							vprint/error "SLiM/validate() rebol version mismatch"
+							vprint "SLiM/validate() rebol version mismatch"
 						][
-							vprint/error "SLiM/validate() rebol package mismatch"
+							vprint "SLiM/validate() rebol package mismatch"
 						]
 					]
 				][
@@ -839,7 +858,7 @@ SLiM: make object! [
 				success: true
 			]
 		][
-			vprint/error ["SLiM/validate() LIBRARY VERSION mismatch... needs v" self/open-version "   Found: v"header/version]
+			vprint ["SLiM/validate() LIBRARY VERSION mismatch... needs v" self/open-version "   Found: v"header/version]
 		]
 		vprint/out "]"
 		success
@@ -937,7 +956,9 @@ SLiM: make object! [
 		; make sure we have a lib object at this point
 		if lib? lib [
 			
-			reserved-words: [--init-- load save read write self rsrc-path header --private--]
+			reserved-words: [--init-- 
+				;load save read write 
+				self rsrc-path header --private--]
 			if in lib '--private-- [
 				vprint "ADDING PRIVATE WORDS"
 				reserved-words: append copy reserved-words lib/--private--
@@ -955,7 +976,7 @@ SLiM: make object! [
 				block! [
 					;---------------------------------------------
 					; find, set and remove a rename block, if any.
-					if (rwords: find words block!)[
+					if (rwords: find words block!) [
 						blk: first rwords
 						remove rwords
 						rwords: blk
@@ -988,7 +1009,6 @@ SLiM: make object! [
 					pword: lib/header/slim-name
 				]
 			]
-				
 			
 			;----------------------------
 			;----- BUILD EXPOSE LIST
@@ -1014,7 +1034,6 @@ SLiM: make object! [
 			foreach word words [
 				insert/dup tail rwords word 2
 			]
-			
 			;----------------------------
 			;----- REMOVE ANY RESERVED WORDS FROM LIST!
 			;----------------------------
@@ -1049,7 +1068,7 @@ SLiM: make object! [
 					worda: to-word first expose-words
 				]
 				wordb: second expose-words
-				set in system/words worda get in lib wordb
+				set worda get in lib wordb
 				expose-words: next expose-words
 				vprint ["exposing: " wordb " as " worda]
 			]

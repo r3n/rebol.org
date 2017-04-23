@@ -1,12 +1,12 @@
 REBOL [
 	Title: "RSS feed reader"
 	Purpose: "Live Bookmarks"
-	Date: 2006-05-29
-	Version: 1.10.3
+	Date: 2007-07-20
+	Version: 2.0.6
 	Author: "Piotr Gapinski"
 	Email: {news [at] rowery! olsztyn.pl}
 	File: %rss.r
-	Url: http://www.rowery.olsztyn.pl/wspolpraca/rebol/rss/
+	Url: http://rowery.olsztyn.pl/narg/rebol/rss
 	Copyright: "Olsztynska Strona Rowerowa http://www.rowery.olsztyn.pl"
 	License: "GNU General Public License (Version II)"
 	Library: [
@@ -21,41 +21,72 @@ REBOL [
 		support: none
 		license: 'GPL
 	]
+	Zmiany: {
+		2.0.6 2007-07-20
+		- funkcja iconv umozliwia pelna obsluge UTF-8; nieznane znaki sa zamieniane na "."
+		- standardem docelowym nie moze byc UTF-8, zrodlowym nie moze byc ASCII
+		- local-charset jest inicjalizowany tylko raz na poczatku dzialania skryptu
+		2.0.5 2007-07-12
+		- znaki UTF-8 skladajace sie z trzech oktetow sa usuwane
+		- path-thru potrafi obslugiwac url bez nazwy pliku
+		2.0.4 2007-04-03
+		- wybieranie rss za pomoca klawiatury powoduje aktualizacje listy kanalow
+		2.0.3 2007-03-22
+		- read-thru potrafi zapisywac w cache pliki zawierajace znaki specejalne;
+		  mozliwe dzieki podmianie funkcji path-thru
+		2.0.2 2007-03-12
+		- ctx-rss-xml/escape-html domyslnie usuwa nieznane entity html
+		- zamienione kody znakow zet i ziet dla utf-8; zobacz standards/utf-8
+		- docelowe kodowanie znakow jest uzaleznione od systemu operacyjnego;
+			zobacz ctx-rss-xml/to-local-charset
+		2.0.1 2007-03-09
+		- obsluga polskich znakow w standardzie UTF-8; zobacz ctx-rss-xml/iconv
+		- obsluga znacznikow ldquo, rdquo oraz rsquo; zobacz ctx-rss-xml/escape-html
+	}
 ]
 
 if system/version < 1.3.1 [to error! "RSS feed reader requires Rebol/View 1.3.1 or greater"]
-;; secure allow
+secure allow
 
 if error? err: try [
 ctx-rss-hosts: context [
 	hosts: [
 		; [site "nazwa serwisu" url url!-pliku-rss refresh time!-do-odswiezenia]
 		; Linux
-		[site "Linuxnews.pl" url http://linuxnews.pl/rss-index.html refresh 1:00]
+		[site "Linuxnews.pl" url http://linuxnews.pl/feed/ refresh 1:00]
+		[site "jakilinux.org" url http://jakilinux.org/feed/]
 		[site "7th Guard"    url http://rss.7thguard.net/7thguard.xml]
-		[site "Slackware"    url http://riexc.r1g.edu.lv/stuff/slachrss.php]
+		[site "Linux.com"    url http://www.linux.com/index.rss]
+		
+		; Slackware
+		[site "Slackware Changelog" url http://riexc.r1g.edu.lv/stuff/slachrss.php]
+		[site "Slackware SSA" url http://dev.slackware.it/rss/slackware-security.xml]
+		[site "Develia.org"  url http://www.develia.org/news.rss20.en.xml]
+		
+		; Software
 		[site "KDE-Apps.org" url http://www.kde.org/dot/kde-apps-content.rdf]
 		[site "Freshmeat"    url http://freshmeat.net/backend/fm-releases.rdf]
-		[site "Linux.com"    url http://www.linux.com/index.rss]
+		[site "Google: CakePHP" url http://groups.google.com/group/cake-php/feed/rss_v2_0_msgs.xml]
+		[site "Rails Trac"   url http://dev.rubyonrails.org/timeline?milestone=on&ticket=on&ticket_details=on&changeset=on&max=30&daysback=7&format=rss]
+		[site "Google: RubyOnRails" url http://groups.google.com/group/rubyonrails/feed/rss_v2_0_msgs.xml]
+		[site "Joel on Software" url http://www.joelonsoftware.com/rss.xml]
 
-		; Wiadomosci
-		[site "Slashdot.org" url http://slashdot.org/index.rss]
-		[site "Wired News"   url http://www.wired.com/news/feeds/rss2/0,2610,40,00.xml]
-
-		; Software
-		[site "Rebol"        url http://www.rebol.net/blog/carl-rss.xml]
-		[site "Rebol3"       url http://www.rebol.net/r3blogs/rebol3-rss.xml]
+		; Programming Languages
+		[site "REBOLution"   url http://www.rebol.net/blog/carl-rss.xml]
+		[site "Rebol3 Front Line" url http://www.rebol.net/r3blogs/rebol3-rss.xml]
 		[site "Rebol.org"    url http://www.rebol.org/cgi-bin/cgiwrap/rebol/rss-get-feed.r]
-		[site "PHP"          url http://www.php.net/news.rss]
-		[site "Cake PHP"     url http://groups.google.com/group/cake-php/feed/rss_v2_0_msgs.xml]
+		[site "PHP Home"     url http://www.php.net/news.rss]
 		[site "Ruby Home"    url http://www.ruby-lang.org/en/index.rdf]
-		[site "Ruby-on-Rails" url http://groups.google.com/group/rubyonrails/feed/rss_v2_0_msgs.xml]
 		[site "Mono Project" url http://www.mono-project.com/news/index.rss2]
+		
+		; DB
 		[site "MySQL"        url http://dev.mysql.com/mysql.rss]
 		[site "PostgreeSQL"  url http://www.postgresql.org/news.rss]
+		[site "OTN Headlines" url http://www.oracle.com/technology/syndication/rss_otn_news.xml]
 
 		; Amiga
 		[site "Polski Portal Amigowy" url http://www.ppa.pl/newsy/b2rss.xml]
+		[site "EXEC.pl" url http://www.exec.pl/news.rss]
 
 		; Inne
 		[site "Rowery!Olsztyn" url http://www.rowery.olsztyn.pl/wiki/feed.php refresh 2:00]
@@ -81,7 +112,7 @@ ctx-rss-hosts: context [
 			url: to-url hosts/:num/url
 			dat: either any [not (valid-rss num) force] [read-thru/update url] [read-thru url]
 			to-string dat
-		]		
+		]
 	]
 
 	set 'valid-rss func [
@@ -91,7 +122,7 @@ ctx-rss-hosts: context [
 
 		if not attempt [exists? path-thru hosts/:num/url] [return false]
 		max-age: any [
-			attempt [hosts/:num/refresh]
+			attempt [to-time hosts/:num/refresh]
 			def-refresh
 		]
 		((rss-datetime num) + max-age) > now
@@ -111,36 +142,67 @@ ctx-rss-hosts: context [
 ctx-rss-xml: context [
 	standards: [
 		; tabela standardow zamiany 18 polskich znakow (duze/male)
-		win-pl [165 198 202 163 209 211 140 143 175 185 230 234 179 241 243 156 159 191] ;; "windows-1250"
-		iso-pl [161 198 202 163 209 211 166 172 175 177 230 234 179 241 243 182 188 191] ;; "iso-8859-2"
-		ami-pl [194 202 203 206 207 211 212 218 219 226 234 235 238 239 243 244 250 251] ;; "Amiga PL"
-		ascii  [065 067 069 076 078 079 083 090 090 097 099 101 108 110 111 115 122 122] ;; "ASCII"
+		windows-1250 [165 198 202 163 209 211 140 143 175 185 230 234 179 241 243 156 159 191]
+		iso-8859-2 [161 198 202 163 209 211 166 172 175 177 230 234 179 241 243 182 188 191]
+		utf-8 [260 262 280 321 323 211 346 377 379 261 263 281 322 324 243 347 378 380]
+		ascii [065 067 069 076 078 079 083 090 090 097 099 101 108 110 111 115 122 122]
 	]
-
-	to-ascii: func [
-		"Zmienia standard polskich znaków na ascii; Zwraca string! po konwersji"
+	local-charset: select standards any [select [4 ascii 3 windows-1250] (fourth system/version) 'ascii]
+	
+	to-local-charset: func [
+		"Zmienia standard polskich znakow; Zwraca string! po konwersji"
 		str [string!] "tekst do konwersji"
-		/local rc] [
+		encoding [string! none!] "standard zrodlowy"] [
 
-		iconv str (standards/iso-pl) (standards/ascii)
+		encoding: attempt [to-word to-string encoding]
+		iconv str any [(select standards encoding) standards/utf-8] local-charset
 	]
 
 	iconv: func [
 		"Konwertuje polskie znaki w tekscie; Zwraca string! po konwersji"
 		str [string!] "tekst do konwersji"
-		inp  [block!] "tablica konwersji (wejsciowa)"
+		inp [block!] "tablica konwersji (wejsciowa)"
 		out [block!]  "tablica konwersji (wyjsciowa)"
-		/local i c here] [
+		/local i j c here] [
 
-		if same? inp out [return str]
-
+		; standardem docelowym nie moze byc UTF-8, zrodlowym nie moze byc ASCII
+		if any [
+			same? inp out 
+			same? inp standards/ascii
+			out/1 > 255 ; foreach code out [if code > 255 [break/return true]]
+		][
+			return str
+		]
+		
 		parse/all str [
 			any [
 				here: skip (
-					if 127 < c: first here [
+					c: first here
+					if all [(inp/1 < 255) (c > 127)] [
+						; znaki narodowe maja kod > 127
 						any [
 							none? i: attempt [index? find inp to-integer c]
 							change here to-char out/:i
+						]
+					]
+					if all [(inp/1 > 255) (c > 127)] [
+						; UTF-8
+						; znaki < 128 sa przepuszczane bez zmian
+						either all [(c > 191) (c < 224)] [
+							; dwa okrety
+							i: ((to-integer c) and 31) * to-integer (power 2 6)
+							i: i or (to-integer (second here) and 63)
+							remove/part here 2
+						][
+							; trzy oktety
+							i: ((to-integer c) and 15) * to-integer (power 2 12)
+							i: i or ((to-integer (second here) and 63) * to-integer (power 2 6))
+							i: i or (to-integer (third here) and 63)
+							remove/part here 3
+						]
+						insert here any [
+							if none? j: attempt [index? find inp i] ["."]
+							to-char out/:j
 						]
 					]
 				) :here
@@ -150,8 +212,7 @@ ctx-rss-xml: context [
 		head here
 	]
 
-	tokens: ["amp" {&} "lt" {<} "gt" {>} "nbsp" { } "apos" {'} "quot" {"} "raquo" {-}]
-
+	tokens: ["amp" {&} "lt" {<} "gt" {>} "nbsp" { } "apos" {'} "quot" {"} "raquo" {-} "ldquo" {"} "rdquo" {"} "rsquo" {'}]
 	escape-html: func [
 		"Zamienia encje HTML na tekst; Zwraca string! po konwersji"
 		text [string!] "tekst do konwersji"
@@ -172,14 +233,13 @@ ctx-rss-xml: context [
 					:here
 
 					| copy item some entity ";" there: (
-						code: select tokens item
-						if not none? code [
-							remove/part here there
+						remove/part here there
+						any [
+							none? code: select tokens item
 							insert here code
-							there: here
 						]
 					)
-					:there
+					:here
 					]
 
 				| ["<![" "CDATA[" | "]]>"] there: (remove/part here there) :here
@@ -199,19 +259,12 @@ ctx-rss-xml: context [
 		form page
 	]
 
-	space: charset " ^-^M^/"
-	spaces: [any space]
-	chars: complement nochar: charset { ^-^/^M<>"}
-	some-chars: [any space any chars any space]
-
 	rss: copy [] ; miejsce na wynikowa tablice informacji
-	ctx: copy []
+	ctx: copy [] ; kontekst znalezionego znacznika
+
 	emit: func ['scope desc] [
 		desc: any [desc ""]
-		repend ctx [
-			scope
-			to-ascii (strip-html desc)
-		]
+		repend ctx [scope (strip-html desc)]
 	]
 
 	parts: [
@@ -221,13 +274,13 @@ ctx-rss-xml: context [
 		["<poll" thru ">" (repend rss [ctx 'poll] ctx: copy [])] | </poll> |
 		["<textinput" thru ">" (repend rss [ctx 'textinput] ctx: copy [])] | </textinput> |
 		["<item" thru ">" (repend rss [ctx 'item] ctx: copy [])] | </item> |
-		[<title> copy title to </title> </title> (emit 'title title)] |
-		[<link> copy link to </link> </link> (emit 'link link)] |
-		[<url> copy url to </url> </url> (emit 'url url)] |
-		[<description> copy desc to </description> </description> (emit 'description desc)] |
-		[<pubdate> copy pubdate to </pubdate> </pubdate> (emit 'pubdate pubdate)] |
-		[<dc:date> copy pubdate to </dc:date> </dc:date> (emit 'pubdate pubdate)] |
-		[<dc:pubdate> copy pubdate to </dc:pubdate> </dc:pubdate> (emit 'pubdate pubdate)] |
+		[<title> copy title to </title> (emit 'title title)] |
+		[<link> copy link to </link> (emit 'link link)] |
+		[<url> copy url to </url> (emit 'url url)] |
+		[<description> copy desc to </description> (emit 'description desc)] |
+		[<pubdate> copy pubdate to </pubdate> (emit 'pubdate pubdate)] |
+		[<dc:date> copy pubdate to </dc:date> (emit 'pubdate pubdate)] |
+		[<dc:pubdate> copy pubdate to </dc:pubdate> (emit 'pubdate pubdate)] |
 		skip
 	]
 
@@ -241,11 +294,23 @@ ctx-rss-xml: context [
 		scope [word!] "zakres danych (channel|image|item|poll|...)"
 		dat [string!] "dane xml"
 		f [any-function!] "funkcja callback; otrzymuje parametry scope jako argument (block!)"
-		/local rc] [
+		/local rc encoding] [
 
 		rc: true
 		; pobieranie poszczegolnych newsow (item) oznacza koniecznosc odwiezenia calego rss
 		if any [(empty? rss) (scope = 'item)] [
+		
+			; konwertuj wykryty standard (domyslnie UTF-8)
+			any [
+				parse/all detab dat [
+					to "<?xml" thru "encoding" 2 skip 
+					copy encoding to {"}
+					thru {?>} to end
+				]
+				encoding: none
+			]
+			dat: to-local-charset dat encoding
+
 			clear rss
 			clear ctx
 			rc: parse/all detab dat rules
@@ -347,12 +412,9 @@ ctx-rss-display: context [
 		"Wyswietla rss serwera okreslonego pozycja w liscie serwerow; Zwraca wartosc logic!"
 		num [integer!] "numer sajtu"
 		/force "wymusza aktualizacje danych"
-		/local desc link nf error list-lay tl] [
+		/local desc link nf error list-lay tl][
 
-		either all [
-			valid-rss num
-			not force
-		][
+		either all [(valid-rss num) (not force)][
 			; jezeli nie bylo zmiany rss - nie odswiezaj listy
 			if (last-rss-num = num) [return true]
 			nf: false
@@ -368,12 +430,15 @@ ctx-rss-display: context [
 		gui-hosts-list/text: first gui-hosts-list/data
 
 		attempt [
-			; hack!
-			; zmien podswietlony element w liscie drop-down zgodnie z wyborem usera
+			; hack! niestety wymaga by drop-down by wczesniej chociaz raz otwarty
 			if list-lay: gui-hosts-list/list-lay [
 				tl: first list-lay/pane
+				; zmien podswietlony element w liscie drop-down zgodnie z wyborem usera
 				clear tl/picked
 				append tl/picked gui-hosts-list/text
+				; przesun liste tak by nowy element byl widoczny
+				tl/sld/data: (index? gui-hosts-list/data) / (length? gui-hosts-list/texts)
+				do-face tl/sld tl/sld/data
 			]
 		]
 
@@ -391,7 +456,6 @@ ctx-rss-display: context [
 			; dane nie zostaly zaladowane
 			error: true
 		]
-
 		if error [display-error {Error reading news feed!} {please check internet connection; press "refresh" button to try again}]
 		if nf [unview/only nf]
 
@@ -414,14 +478,14 @@ ctx-rss-display: context [
 		"Tworzy naglowek wiadomosci wykorzystujac VID button; Zwraca object! VID BUTTON"
 		hdr-text [string! none!] hdr-url [url! string! none!] hdr-size [pair!] hdr-offset [pair!]] [
 
-		btn: make get-style 'button [
+		make get-style 'button [
 			size: hdr-size
 			offset: hdr-offset
 			text: trim/lines/head/tail hdr-text
 			edge: make edge [size: 0x0]
 			font: make font [align: 'left size: 13]
 			user-data: either none? hdr-url [none] [copy hdr-url]
-			action: make function! [] [if not none? user-data [browse/only user-data]]
+			action: make function! [] [any [(none? user-data) (browse/only user-data)]]
 		]
 	]
 	make-line: func [
@@ -438,7 +502,7 @@ ctx-rss-display: context [
 		"Tworzy opis wiadomosci wykorzystujac VID txt; Zwraca object! VID TXT"
 		desc-text [string! none!] desc-size [pair!] desc-offset [pair!]] [
 
-		btn: make get-style 'txt [
+		make get-style 'txt [
 			size: desc-size
 			offset: desc-offset
 			text: trim/lines/head/tail desc-text
@@ -530,10 +594,25 @@ ctx-rss-display: context [
 	]
 ]
 
-linux?: equal? fourth system/version 4
-if linux? [
-	attempt [unprotect 'browse]
-	browse: func [value [any-string!] /only][call reform ["konqueror" rejoin [{"} value {"}]]]
+if get-env "KDEDIR" [
+	attempt [
+		unprotect 'browse
+		browse: func [value [any-string!] /only][call reform ["konqueror" rejoin [{"} value {"}]]]
+	]
+]
+
+attempt [
+	unprotect 'path-thru
+	path-thru: func [
+		"Return a path relative to the disk cache."
+		url /local purl path
+	][
+		if file? url [return url]
+		if not all [purl: decode-url url purl/host] [return none]
+		path: rejoin [view-root/public slash purl/host slash any [purl/path ""] any [purl/target ""]]
+		any [(suffix? path) append path "index.txt"]
+		foreach ch [{?} {*} {"} {<} {>} {|}] [replace/all path ch "_"]
+	]
 ]
 
 img: load 64#{
@@ -703,6 +782,4 @@ view/title main-window "Live Bookmarks"
 ][
 	alert rejoin [{We apologize, an unexpected error occurred (} get in disarm err 'id { error)}]
 ]
-
 quit
-

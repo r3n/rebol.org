@@ -2,7 +2,7 @@ REBOL [
    File: %unpack.r
    Date: 17-Jan-2005
    Title: "User Server"
-   Author: "Daniel Sirotzke"
+   Author: "Izkata"
    Purpose: {
          I created this to load websites and chek my email,
          as well as a few other things, at certain intervals.

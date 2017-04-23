@@ -5,7 +5,6 @@ REBOL [
     File: %days-till-christmas.r
     Author: "Izkata"
     Purpose: {Starting on Halloween, Tells how long till Christmas: Days, Hours, Minutes, Seconds}
-    Email: Meyroy@DragonWarrior.every1.net
     library: [
         level: 'intermediate
         platform: 'all

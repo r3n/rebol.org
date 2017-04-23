@@ -11,7 +11,7 @@ REBOL [
 		type: [function tool]
 		domain: [shell]
 		tested-under: [View 1.3.2 on WinXP]
-		license: 'MIT
+		license: 'public-domain
 		support: none
         ]
 ] 

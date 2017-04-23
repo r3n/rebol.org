@@ -3,8 +3,8 @@ REBOL [
 	file: %opengl-glu-glut-h.r
 	author: "Marco Antoniazzi"
 	email: [luce80 AT libero DOT it]
-	date: 05-05-2012
-	version: 0.6.5
+	date: 22-04-2013
+	version: 0.7.2
 	needs: {
 		- opengl, glu, glut shared libraries
 	}
@@ -13,7 +13,7 @@ REBOL [
 		Rebol specific functions start with gl- or glut- .
 		Some functions "inspired" by John Niclasen and Cal Dixon
 		Example code taken from OpenGL.R Test (c) 2003 Cal Dixon
-		Example needs Windows.
+		Example needs Windows or Linux.
 	}
 	Purpose: "Code to bind OpenGL, GLU, GLUT shared libraries to Rebol."
 	History: [
@@ -25,6 +25,11 @@ REBOL [
 		0.6.3 [08-12-2011 "Minor retouches"]
 		0.6.4 [13-02-2012 "Bug fixed wait time"]
 		0.6.5 [05-05-2012 "Fixed double buffer flag"]
+		0.6.6 [10-06-2012 "Partially fixed full-screen"]
+		0.6.7 [15-09-2012 "Fixed library names (thanks Kaj)"]
+		0.7.0 [18-09-2012 "Added custom glut on Linux"]
+		0.7.1 [21-09-2012 "Various fixes on Linux"]
+		0.7.2 [22-04-2013 "Fixed GLUT callbacks"]
 	]
 	Category: [library graphics]
 	library: [
@@ -32,7 +37,7 @@ REBOL [
 		platform: 'all
 		type: 'module
 		domain: [graphics external-library]
-		tested-under: [View 2.7.8.3.1]
+		tested-under: [View 2.7.8.3.1 2.7.8.4.3]
 		support: none
 		license: none
 		see-also: none
@@ -50,6 +55,7 @@ REBOL [
 	addr: func [ptr [binary! string!]] [third make struct! [s [string!]] reduce [ptr]]
 	get&: func [ptr] [change third *int addr ptr *int/ptr/value]
 	&: func [ptr] [ptr: addr ptr to-integer either 'little = get-modes system:// 'endian [head reverse copy ptr][ptr]]
+
 	;;;
 	;;;REBOL-NOTE: use this function to map data to a struct!
 	;;;
@@ -69,25 +75,37 @@ REBOL [
 	;;;
 	block-to-struct: func [
 		"Construct a struct! and initialize it based on given block"
-		block [block!] /floats /local spec type
+		block [block!] /floats /local spec type n
 		] [
 		block: copy block
 		replace/all block 'none 0
 		spec: copy []
+		n: 1
 		forall block [
-			append spec compose/deep/only [. [(
+			append spec compose/deep/only [(to-word join '. n) [(
 				type: type?/word first block
 				either all [equal? type 'decimal! floats]['float][type]
 			)]]
+			n: n + 1
 		]
 		make struct! spec block
 	]
 
+	assign-struct: func [
+		"Assign src struct data to dst"
+		dst [struct!] src [struct!]
+		] [
+		change third dst third src
+	]
+
+
+{************************************************************
+************************************************************}
 
 	lib: switch/default System/version/4 [
-		2 [%opengl32.dylib]	;OSX
+		2 [%libGL.dylib]	;OSX
 		3 [%opengl32.dll]	;Windows
-	] [%opengl32.so]
+	] [%libGL.so.1]
 
 	if not attempt [opengl-lib: load/library lib] [alert rejoin ["" lib " library not found. Quit"] quit]
 
@@ -1226,8 +1244,9 @@ REBOL [
 	glClearIndex: make routine! [ c [float] ] opengl-lib "glClearIndex" 
 	glClearStencil: make routine! [ s [GLint] ] opengl-lib "glClearStencil" 
 	glClipPlane: make routine! [ plane [GLenum] equation [binary!] ] opengl-lib "glClipPlane" 
-	gl-ClipPlane: func [ plane [GLenum] equation [block!] ] [
-		glClipPlane plane third block-to-struct equation
+	gl-ClipPlane: func [ plane [GLenum] equation [block!] /local bin] [
+		bin: third block-to-struct equation ;MUST assing to a local variable on Linux (!?)
+		glClipPlane plane bin
 	]
 
 	;gl-Color: func [color [tuple!]] [either color/4 [glColor4ub to-char color/1 to-char color/2 to-char color/3 to-char color/4] [glColor3ub to-char color/1 to-char color/2 to-char color/3]]
@@ -1295,7 +1314,11 @@ REBOL [
 	glDisableClientState: make routine! [ array [GLenum] ] opengl-lib "glDisableClientState" 
 	glDrawArrays: make routine! [ mode [GLenum] first [GLint] count [GLsizei] ] opengl-lib "glDrawArrays" 
 	glDrawBuffer: make routine! [ mode [GLenum] ] opengl-lib "glDrawBuffer" 
-	glDrawElements: make routine! [ mode [GLenum] count [GLsizei] type [GLenum] indices [integer!] ] opengl-lib "glDrawElements" 
+	glDrawElements: make routine! [ mode [GLenum] count [GLsizei] type [GLenum] indices [binary!] ] opengl-lib "glDrawElements" 
+	gl-DrawElements: func [ mode [GLenum] count [GLsizei] indices [block!] /local bin] [
+		bin: third block-to-struct/floats indices ;MUST assing to a local variable in Linux (!?)
+		glDrawElements mode count GL_UNSIGNED_INT bin
+	]
 	glDrawPixels: make routine! [ width [GLsizei] height [GLsizei] format [GLenum] type [GLenum] pixels [binary!] ] opengl-lib "glDrawPixels" 
 	glEdgeFlag: make routine! [ flag [GLboolean] ] opengl-lib "glEdgeFlag" 
 	glEdgeFlagPointer: make routine! [ stride [GLsizei] pointer [integer!] ] opengl-lib "glEdgeFlagPointer" 
@@ -1339,10 +1362,10 @@ REBOL [
 	glGenTextures: make routine! [ n [GLsizei] textures [binary!] ] opengl-lib "glGenTextures" 
 	glGetBooleanv: make routine! [ pname [GLenum] params [integer!] ] opengl-lib "glGetBooleanv" 
 	glGetClipPlane: make routine! [ plane [GLenum] equation [integer!] ] opengl-lib "glGetClipPlane" 
-	glGetDoublev: make routine! [ pname [GLenum] params [integer!] ] opengl-lib "glGetDoublev" 
+	glGetDoublev: make routine! [ pname [GLenum] params [struct! []] ] opengl-lib "glGetDoublev" 
 	glGetError: make routine! [ return: [GLenum] ] opengl-lib "glGetError" 
 	glGetFloatv: make routine! [ pname [GLenum] params [struct! []] ] opengl-lib "glGetFloatv" 
-	glGetIntegerv: make routine! [ pname [GLenum] params [integer!] ] opengl-lib "glGetIntegerv" 
+	glGetIntegerv: make routine! [ pname [GLenum] params [struct! []] ] opengl-lib "glGetIntegerv" 
 	glGetLightfv: make routine! [ light [GLenum] pname [GLenum] params [integer!] ] opengl-lib "glGetLightfv" 
 	glGetLightiv: make routine! [ light [GLenum] pname [GLenum] params [integer!] ] opengl-lib "glGetLightiv" 
 	glGetMapdv: make routine! [ target [GLenum] query [GLenum] v [integer!] ] opengl-lib "glGetMapdv" 
@@ -1389,9 +1412,10 @@ REBOL [
 	glLightModeli: make routine! [ pname [GLenum] param [GLint] ] opengl-lib "glLightModeli" 
 	glLightModeliv: make routine! [ pname [GLenum] params [integer!] ] opengl-lib "glLightModeliv" 
 	glLightf: make routine! [ light [GLenum] pname [GLenum] param [float] ] opengl-lib "glLightf" 
-	glLightfv: make routine! [ light [GLenum] pname [GLenum] params [binary!] ] opengl-lib "glLightfv" 
-	gl-Lightfv: func [ light [GLenum] pname [GLenum] params [block!] ] [
-		glLightfv light pname third block-to-struct/floats params
+	glLightfv: make routine! [ light [integer!] pname [integer!] params [binary!] ] opengl-lib "glLightfv" 
+	gl-Lightfv: func [ light [integer!] pname [integer!] params [block!] /local bin] [
+		bin: third block-to-struct/floats params ;MUST assing to a local variable in Linux (!?)
+		glLightfv light pname bin
 	]
 	glLighti: make routine! [ light [GLenum] pname [GLenum] param [GLint] ] opengl-lib "glLighti" 
 	glLightiv: make routine! [ light [GLenum] pname [GLenum] params [integer!] ] opengl-lib "glLightiv" 
@@ -1478,7 +1502,7 @@ REBOL [
 	glRasterPos4s: make routine! [ x [short] y [short] z [short] w [short] ] opengl-lib "glRasterPos4s" 
 	glRasterPos4sv: make routine! [ v [integer!] ] opengl-lib "glRasterPos4sv" 
 	glReadBuffer: make routine! [ mode [GLenum] ] opengl-lib "glReadBuffer" 
-	glReadPixels: make routine! [ x [GLint] y [GLint] width [GLsizei] height [GLsizei] format [GLenum] type [GLenum] pixels [integer!] ] opengl-lib "glReadPixels" 
+	glReadPixels: make routine! [ x [GLint] y [GLint] width [GLsizei] height [GLsizei] format [GLenum] type [GLenum] pixels [binary!] ] opengl-lib "glReadPixels" 
 	glRect: glRectd: make routine! [ x1 [GLdouble] y1 [GLdouble] x2 [GLdouble] y2 [GLdouble] ] opengl-lib "glRectd" 
 	glRectdv: make routine! [ v1 [integer!] v2 [integer!] ] opengl-lib "glRectdv" 
 	glRectf: make routine! [ x1 [float] y1 [float] x2 [float] y2 [float] ] opengl-lib "glRectf" 
@@ -1575,7 +1599,11 @@ REBOL [
 	glVertex4iv: make routine! [ v [integer!] ] opengl-lib "glVertex4iv" 
 	glVertex4s: make routine! [ x [short] y [short] z [short] w [short] ] opengl-lib "glVertex4s" 
 	glVertex4sv: make routine! [ v [integer!] ] opengl-lib "glVertex4sv" 
-	glVertexPointer: make routine! [ size [GLint] type [GLenum] stride [GLsizei] pointer [integer!] ] opengl-lib "glVertexPointer" 
+	glVertexPointer: make routine! [ size [GLint] type [GLenum] stride [GLsizei] pointer [binary!] ] opengl-lib "glVertexPointer" 
+	gl-VertexPointer: func [ size [GLint] stride [GLsizei] pointer [block!] /local bin] [
+		bin: third block-to-struct pointer
+		glVertexPointer size GL_DOUBLE stride bin
+	]
 	glViewport: make routine! [ x [GLint] y [GLint] width [GLsizei] height [GLsizei] ] opengl-lib "glViewport" 
 
 
@@ -1584,9 +1612,9 @@ REBOL [
 ************************************************************}
 
 	lib: switch/default System/version/4 [
-		2 [%glu32.dylib]	;OSX
+		2 [%libGLU.dylib]	;OSX
 		3 [%glu32.dll]	;Windows
-	] [%glu32.so]
+	] [%libGLU.so.1]
 
 	if not attempt [glu-lib: load/library lib] [alert rejoin ["" lib " library not found. Quit"] quit]
 
@@ -1611,7 +1639,7 @@ REBOL [
 	;#endif
 
 	gluErrorString: make routine! [ errCode [GLenum] return: [string!] ] glu-lib "gluErrorString" 
-	gluErrorUnicodeStringEXT: make routine! [ errCode [GLenum] return: [integer!] ] glu-lib "gluErrorUnicodeStringEXT" 
+	;gluErrorUnicodeStringEXT: make routine! [ errCode [GLenum] return: [integer!] ] glu-lib "gluErrorUnicodeStringEXT" 
 	gluGetString: make routine! [
 	 name [GLenum] return: [string!] ] glu-lib "gluGetString" 
 
@@ -1660,12 +1688,12 @@ REBOL [
 	 winx [GLdouble]
 	 winy [GLdouble]
 	 winz [GLdouble]
-	 modelMatrix [GLdouble] {[16],}
-	 projMatrix [GLdouble] {[16],}
-	 viewport [GLint] {[4],}
-	 objx [integer!]
-	 objy [integer!]
-	 objz [integer!] return: [integer!] ] glu-lib "gluUnProject" 
+	 modelMatrix [struct! []] {[16],}
+	 projMatrix [struct! []] {[16],}
+	 viewport [struct! []] {[4],}
+	 objx [struct! []]
+	 objy [struct! []]
+	 objz [struct! []] return: [integer!] ] glu-lib "gluUnProject" 
 
 	gluScaleImage: make routine! [
 	 format [GLenum]
@@ -2077,11 +2105,11 @@ REBOL [
 ************************************************************}
 
 	lib: switch/default System/version/4 [
-		2 [%glut32.dylib]	;OSX
+		2 [%libGLUT.dylib]	;OSX
 		3 [%glut32.dll]	;Windows
-	] [%glut32.so]
+	] [%libGLUT.so.1]
 
-	if not attempt [glut-lib: load/library lib] [alert rejoin ["" lib " library not found. Quit"] quit]
+	if not attempt [glut-lib: load/library lib] [glut-lib: none];alert rejoin ["" lib " library not found. Quit"]]
 
 {************************************************************
 **  glut.h
@@ -2375,6 +2403,30 @@ REBOL [
 	{ Fullscreen crosshair (if available). }
 	GLUT_CURSOR_FULL_CROSSHAIR:	102
 
+	{ GLUT device control sub-API. }
+	{ glutSetKeyRepeat modes. }
+	GLUT_KEY_REPEAT_OFF:		0
+	GLUT_KEY_REPEAT_ON:		1
+	GLUT_KEY_REPEAT_DEFAULT:		2
+
+	{ Joystick button masks. }
+	GLUT_JOYSTICK_BUTTON_A:		1
+	GLUT_JOYSTICK_BUTTON_B:		2
+	GLUT_JOYSTICK_BUTTON_C:		4
+	GLUT_JOYSTICK_BUTTON_D:		8
+
+	{ GLUT game mode sub-API. }
+	{ glutGameModeGet. }
+	GLUT_GAME_MODE_ACTIVE:             0 
+	GLUT_GAME_MODE_POSSIBLE:           1 
+	GLUT_GAME_MODE_WIDTH:              2 
+	GLUT_GAME_MODE_HEIGHT:             3 
+	GLUT_GAME_MODE_PIXEL_DEPTH:        4 
+	GLUT_GAME_MODE_REFRESH_RATE:       5 
+	GLUT_GAME_MODE_DISPLAY_CHANGED:    6 
+
+	if glut-lib [
+
 	{ GLUT initialization sub-API. }
 	glutInit: make routine! [ argcp [integer!] argv [string!] ] glut-lib "glutInit" 
 	{
@@ -2455,33 +2507,36 @@ REBOL [
 	glutDetachMenu: make routine! [ button [integer!] ] glut-lib "glutDetachMenu" 
 
 	{ GLUT window callback sub-API. }
-	{
-	extern void APIENTRY glutDisplayFunc(void (GLUTCALLBACK *func)(void));
-	extern void APIENTRY glutReshapeFunc(void (GLUTCALLBACK *func)(int width, int height));
-	extern void APIENTRY glutKeyboardFunc(void (GLUTCALLBACK *func)(unsigned char key, int x, int y));
-	extern void APIENTRY glutMouseFunc(void (GLUTCALLBACK *func)(int button, int state, int x, int y));
-	extern void APIENTRY glutMotionFunc(void (GLUTCALLBACK *func)(int x, int y));
-	extern void APIENTRY glutPassiveMotionFunc(void (GLUTCALLBACK *func)(int x, int y));
-	extern void APIENTRY glutEntryFunc(void (GLUTCALLBACK *func)(int state));
-	extern void APIENTRY glutVisibilityFunc(void (GLUTCALLBACK *func)(int state));
-	extern void APIENTRY glutIdleFunc(void (GLUTCALLBACK *func)(void));
-	extern void APIENTRY glutTimerFunc(unsigned int millis, void (GLUTCALLBACK *func)(int value), int value);
-	extern void APIENTRY glutMenuStateFunc(void (GLUTCALLBACK *func)(int state));
-	extern void APIENTRY glutSpecialFunc(void (GLUTCALLBACK *func)(int key, int x, int y));
-	extern void APIENTRY glutSpaceballMotionFunc(void (GLUTCALLBACK *func)(int x, int y, int z));
-	extern void APIENTRY glutSpaceballRotateFunc(void (GLUTCALLBACK *func)(int x, int y, int z));
-	extern void APIENTRY glutSpaceballButtonFunc(void (GLUTCALLBACK *func)(int button, int state));
-	extern void APIENTRY glutButtonBoxFunc(void (GLUTCALLBACK *func)(int button, int state));
-	extern void APIENTRY glutDialsFunc(void (GLUTCALLBACK *func)(int dial, int value));
-	extern void APIENTRY glutTabletMotionFunc(void (GLUTCALLBACK *func)(int x, int y));
-	extern void APIENTRY glutTabletButtonFunc(void (GLUTCALLBACK *func)(int button, int state, int x, int y));
-	extern void APIENTRY glutMenuStatusFunc(void (GLUTCALLBACK *func)(int status, int x, int y));
-	extern void APIENTRY glutOverlayDisplayFunc(void (GLUTCALLBACK *func)(void));
-	extern void APIENTRY glutWindowStatusFunc(void (GLUTCALLBACK *func)(int state));
-	extern void APIENTRY glutKeyboardUpFunc(void (GLUTCALLBACK *func)(unsigned char key, int x, int y));
-	extern void APIENTRY glutSpecialUpFunc(void (GLUTCALLBACK *func)(int key, int x, int y));
-	extern void APIENTRY glutJoystickFunc(void (GLUTCALLBACK *func)(unsigned int buttonMask, int x, int y, int z), int pollInterval);
-	}
+
+	;REBOL-NOTE: some routines commented only because otherwise REBOL gives "too many callbacks" error (if you use them you have to comment some others)
+
+	glutDisplayFunc: make routine! [f [callback []]] glut-lib "glutDisplayFunc"
+	glutReshapeFunc: make routine! [f [callback [int int]]] glut-lib "glutReshapeFunc"
+	glutKeyboardFunc: make routine! [f [callback [char int int ]]] glut-lib "glutKeyboardFunc"
+	glutMouseFunc: make routine! [f [callback [int int int int ]]] glut-lib "glutMouseFunc"
+	glutMotionFunc: make routine! [f [callback [int int ]]] glut-lib "glutMotionFunc"
+	;glutPassiveMotionFunc: make routine! [f [callback [int int y]]] glut-lib "glutPassiveMotionFunc"
+	;glutEntryFunc: make routine! [f [callback [int]]] glut-lib "glutEntryFunc"
+	glutVisibilityFunc: make routine! [f [callback [int]]] glut-lib "glutVisibilityFunc"
+	glutIdleFunc: make routine! [f [callback []]] glut-lib "glutIdleFunc"
+	glutTimerFunc: make routine! [millis [integer!] f [callback [int]] value [integer!]] glut-lib "glutReshapeFunc"
+	glutMenuStateFunc: make routine! [f [callback [int]]] glut-lib "glutMenuStateFunc"
+	glutSpecialFunc: make routine! [f [callback [int int int]]] glut-lib "glutSpecialFunc"
+	;glutSpaceballMotionFunc: make routine! [f [callback [int int int]]] glut-lib "glutSpaceballMotionFunc"
+	;glutSpaceballRotateFunc: make routine! [f [callback [int int int]]] glut-lib "glutSpaceballRotateFunc"
+	;glutSpaceballButtonFunc: make routine! [f [callback [int int]]] glut-lib "glutSpaceballButtonFunc"
+	;glutButtonBoxFunc: make routine! [f [callback [int int]]] glut-lib "glutButtonBoxFunc"
+	;glutDialsFunc: make routine! [f [callback [int int]]] glut-lib "glutDialsFunc"
+	;glutTabletMotionFunc: make routine! [f [callback [int int]]] glut-lib "glutTabletMotionFunc"
+	;glutTabletButtonFunc: make routine! [f [callback [int int int int]]] glut-lib "glutTabletButtonFunc"
+	glutMenuStatusFunc: make routine! [f [callback [int int int]]] glut-lib "glutMenuStatusFunc"
+	;glutOverlayDisplayFunc: make routine! [f [callback []]] glut-lib "glutOverlayDisplayFunc"
+	glutWindowStatusFunc: make routine! [f [callback [int]]] glut-lib "glutWindowStatusFunc"
+	glutKeyboardUpFunc: make routine! [f [callback [char int int]]] glut-lib "glutKeyboardUpFunc"
+	glutSpecialUpFunc: make routine! [f [callback [int int int]]] glut-lib "glutSpecialUpFunc"
+	glutJoystickFunc: make routine! [f [callback [int int int int]] pollInterval [integer!]] glut-lib "glutJoystickFunc"
+	
+
 	{ GLUT color index sub-API. }
 	glutSetColor: make routine! [ a [integer!] red [float] green [float] blue [float] ] glut-lib "glutSetColor" 
 	glutGetColor: make routine! [ ndx [integer!] component [integer!] return: [float] ] glut-lib "glutGetColor" 
@@ -2531,55 +2586,36 @@ REBOL [
 	glutVideoResize: make routine! [ x [integer!] y [integer!] width [integer!] height [integer!] ] glut-lib "glutVideoResize" 
 	glutVideoPan: make routine! [ x [integer!] y [integer!] width [integer!] height [integer!] ] glut-lib "glutVideoPan" 
 
-	 { GLUT debugging sub-API. }
+	{ GLUT debugging sub-API. }
 	glutReportErrors: make routine! [ ] glut-lib "glutReportErrors" 
-
-	{ GLUT device control sub-API. }
-	{ glutSetKeyRepeat modes. }
-	GLUT_KEY_REPEAT_OFF:		0
-	GLUT_KEY_REPEAT_ON:		1
-	GLUT_KEY_REPEAT_DEFAULT:		2
-
-	{ Joystick button masks. }
-	GLUT_JOYSTICK_BUTTON_A:		1
-	GLUT_JOYSTICK_BUTTON_B:		2
-	GLUT_JOYSTICK_BUTTON_C:		4
-	GLUT_JOYSTICK_BUTTON_D:		8
 
 	glutIgnoreKeyRepeat: make routine! [ ignore [integer!] ] glut-lib "glutIgnoreKeyRepeat" 
 	glutSetKeyRepeat: make routine! [ repeatMode [integer!] ] glut-lib "glutSetKeyRepeat" 
 	glutForceJoystickFunc: make routine! [ ] glut-lib "glutForceJoystickFunc" 
-
-	{ GLUT game mode sub-API. }
-	{ glutGameModeGet. }
-	GLUT_GAME_MODE_ACTIVE:             0 
-	GLUT_GAME_MODE_POSSIBLE:           1 
-	GLUT_GAME_MODE_WIDTH:              2 
-	GLUT_GAME_MODE_HEIGHT:             3 
-	GLUT_GAME_MODE_PIXEL_DEPTH:        4 
-	GLUT_GAME_MODE_REFRESH_RATE:       5 
-	GLUT_GAME_MODE_DISPLAY_CHANGED:    6 
 
 	glutGameModeString: make routine! [ string [string!] ] glut-lib "glutGameModeString" 
 	glutEnterGameMode: make routine! [ return: [integer!] ] glut-lib "glutEnterGameMode" 
 	glutLeaveGameMode: make routine! [ ] glut-lib "glutLeaveGameMode" 
 	glutGameModeGet: make routine! [ mode [GLenum] return: [integer!] ] glut-lib "glutGameModeGet" 
 
+	]; if glut-lib
 
 
 {************************************************************
-** Rebol specific functions
+** Rebol specific re-implemented glut functions
 ************************************************************}
 	opengl-lib-obj: make object! [
 		loop: true
 		moved:
 		fullscreen: false
 		title: ""
-		mode: GLUT_DOUBLE or GLUT_RGB or GLUT_DEPTH
+		mode:  GLUT_RGB or GLUT_DEPTH
 		posx: 
 		posy: none
 		width: 200
 		height: 200
+		old-pos: none
+		old-size: none
 		window-num: 0
 		face:
 		window:
@@ -2645,19 +2681,19 @@ REBOL [
 	glut-MainLoop: does [
 		if get in opengl-lib-obj 'ReshapeFunc [opengl-lib-obj/ReshapeFunc opengl-lib-obj/window/size/x opengl-lib-obj/window/size/y]
 		opengl-lib-obj/displayFunc
-		while [opengl-lib-obj/loop] [
+		while [any [opengl-lib-obj/loop not empty? system/view/screen-face/pane]] [
 			if get in opengl-lib-obj 'idleFunc [opengl-lib-obj/idleFunc]
 			wait 0.001; REBOL-NOTE: let listen events
 		]
-		if empty? system/view/screen-face/pane [glut-CleanUp]
+		glut-CleanUp
 	]
 	glut-CleanUp: does [
 		glut-unview/quit
 
 		free opengl-lib
 		free glu-lib
-		free glut-lib
-		quit
+		attempt [free glut-lib]
+		;quit
 	]
 	glut-DestroyWindow: does [glut-unview/quit]
 	glut-IconifyWindow: does [opengl-lib-obj/window/changes: [minimize] show opengl-lib-obj/window]
@@ -2665,13 +2701,15 @@ REBOL [
 	glut-PositionWindow: func [ x [integer!] y [integer!] ] [opengl-lib-obj/window/offset: as-pair x y show opengl-lib-obj/window]
 	glut-FullScreen: does [
 		if not opengl-lib-obj/fullscreen [
-			;alter opengl-lib-obj/window/options 'no-title ; REBOL-NOTE: with this findwindow does not work :(
+			alter opengl-lib-obj/window/options 'no-title ; REBOL-NOTE: with this findwindow does not work :(
 			alter opengl-lib-obj/window/options 'no-border
 			alter opengl-lib-obj/window/options 'resize
-			;glut-unview/quit ; if I use this I lost initial values (how can I "remember" they?)
-			;glut-view opengl-lib-obj/title opengl-lib-obj/face
-			opengl-lib-obj/window/changes: [activate maximize]
-			show opengl-lib-obj/window
+			unview/only opengl-lib-obj/window
+			opengl-lib-obj/old-pos: opengl-lib-obj/window/offset
+			opengl-lib-obj/old-size: opengl-lib-obj/window/size
+			opengl-lib-obj/window/offset: 0x0
+			opengl-lib-obj/window/size: system/view/screen-face/size
+			view/new opengl-lib-obj/window
 			if get in opengl-lib-obj 'ReshapeFunc [opengl-lib-obj/ReshapeFunc system/view/screen-face/size/x system/view/screen-face/size/y]
 			opengl-lib-obj/fullscreen: true
 			glut-MainLoop
@@ -2679,15 +2717,17 @@ REBOL [
 	]
 	glut-ReshapeWindow: func [Width Height] [
 		if opengl-lib-obj/fullscreen [
-			;alter opengl-lib-obj/window/options 'no-title
+			alter opengl-lib-obj/window/options 'no-title
 			alter opengl-lib-obj/window/options 'no-border
 			alter opengl-lib-obj/window/options 'resize
-			opengl-lib-obj/window/changes: [restore]
+			opengl-lib-obj/window/offset: opengl-lib-obj/old-pos
+			opengl-lib-obj/window/size: opengl-lib-obj/old-size
 			opengl-lib-obj/fullscreen: false
 		]
 		opengl-lib-obj/window/size/x: Width
 		opengl-lib-obj/window/size/y: Height
-		show opengl-lib-obj/window
+		unview/only opengl-lib-obj/window
+		view/new opengl-lib-obj/window
 		
 		glut-MainLoop
 	]
@@ -2703,145 +2743,24 @@ REBOL [
 		foreach char string [glutBitmapCharacter font char]
 	]
 
-if System/version/4 = 3 [
+
 	{************************************************************
-	** win Rebol specific functions
+	** Rebol specific functions
 	************************************************************}
 
 	glut-view: func [; taken from OpenGL.R Test (c) 2003 Cal Dixon
 		title [string!] face [object!] /options opts [block!]
-		/local PIXELFORMATDESCRIPTOR-def PIXELFORMATDESCRIPTOR pfd user32 gdi32 opengl oldhDC oldhRC hdc hRC
+		/local
+		PIXELFORMATDESCRIPTOR-def PIXELFORMATDESCRIPTOR pfd user32 gdi32 opengl oldhDC oldhRC hdc hRC
+		display attrList-def attrList defs vinfo util_glctx winFocus
 		] [
-
-		PIXELFORMATDESCRIPTOR-def: [
-		   nSize [short]
-		   nVersion [short]
-		   dwFlags [integer!]
-		   iPixelType [char!]
-		   cColorBits [char!]
-		   cRedBits [char!]
-		   cRedShift [char!]
-		   cGreenBits [char!] 
-		   cGreenShift [char!] 
-		   cBlueBits [char!] 
-		   cBlueShift [char!] 
-		   cAlphaBits [char!] 
-		   cAlphaShift [char!] 
-		   cAccumBits [char!] 
-		   cAccumRedBits [char!] 
-		   cAccumGreenBits [char!] 
-		   cAccumBlueBits [char!] 
-		   cAccumAlphaBits [char!] 
-		   cDepthBits [char!] 
-		   cStencilBits [char!] 
-		   cAuxBuffers [char!] 
-		   iLayerType [char!] 
-		   bReserved [char!]
-		   dwLayerMask [integer!]
-		   dwVisibleMask [integer!]
-		   dwDamageMask [integer!]
-		]
-		PIXELFORMATDESCRIPTOR: make struct! PIXELFORMATDESCRIPTOR-def none
-		{pfd constants}
-			PFD_DOUBLEBUFFER: 1
-			PFD_STEREO: 2
-			PFD_DRAW_TO_WINDOW: 4
-			PFD_DRAW_TO_BITMAP: 8
-			PFD_SUPPORT_GDI: 16
-			PFD_SUPPORT_OPENGL: 32
-			PFD_GENERIC_FORMAT: 64
-			PFD_NEED_PALETTE: 128
-			PFD_NEED_SYSTEM_PALETTE: 256
-			PFD_SWAP_EXCHANGE: 512
-			PFD_SWAP_COPY: 1024
-			PFD_SWAP_LAYER_BUFFERS: 2048
-			PFD_GENERIC_ACCELERATED: 4096
-			PFD_SUPPORT_DIRECTDRAW: 8192
-			PFD_TYPE_RGBA: to-char 0
-			PFD_TYPE_COLORINDEX: to-char 1 
-			PFD_MAIN_PLANE: to-char 0
-			PFD_OVERLAY_PLANE: to-char 1
-			PFD_UNDERLAY_PLANE: to-char 255
-
-		pfd: make struct! PIXELFORMATDESCRIPTOR none
-
-		pfd/nSize: length? third pfd
-		pfd/nVersion: 1
-		pfd/dwFlags: PFD_DRAW_TO_WINDOW or PFD_SUPPORT_OPENGL
-		if (opengl-lib-obj/mode and GLUT_DOUBLE) <> 0 [pfd/dwFlags: pfd/dwFlags or PFD_DOUBLEBUFFER]
-		pfd/iPixelType: PFD_TYPE_RGBA
-		pfd/cColorBits: to-char 24
-		pfd/cDepthBits: to-char 32
-		pfd/iLayerType: PFD_MAIN_PLANE
-
-		user32: load/library %user32.dll
-		gdi32: load/library %gdi32.dll
-		;opengl: load/library %Opengl32.dll
-
-		findwindow: make routine! [class [int] name [string!] return: [int]
-			] user32 "FindWindowA"
-
-		GetDC: make routine! [
-		   hWnd [integer!]
-		   return: [integer!]
-		   ] user32 "GetDC"
-
-		ReleaseDC: make routine! [
-		   hWnd [integer!]
-		   hDC [integer!]
-		   ] user32 "ReleaseDC"
-
-		ValidateRect: make routine! [
-		   hWnd [integer!]
-		   rect [integer!] ; really a (RECT *), but can be passed NULL
-		   return: [integer!] ; really a (BOOL)
-		   ] user32 "ValidateRect"
-
-		ChoosePixelFormat: make routine! compose/deep/only [
-		   hdc [integer!]
-		   ppfd [struct! (PIXELFORMATDESCRIPTOR-def)]
-		   return: [integer!]
-		   ] gdi32 "ChoosePixelFormat"
-
-		SetPixelFormat: make routine! compose/deep/only [
-		   hdc [integer!]
-		   iPixelFormat [integer!]
-		   ppfd [struct! (PIXELFORMATDESCRIPTOR-def)]
-		   return: [integer!]
-		   ] gdi32 "SetPixelFormat"
-
-		SwapBuffers: make routine! [
-		   hDC [integer!]
-		   return: [integer!]
-		   ] gdi32 "SwapBuffers"
-
-		wglCreateContext: make routine! [
-		   hDC [integer!]
-		   return: [integer!]
-		   ] opengl-lib "wglCreateContext"
-
-		wglMakeCurrent: make routine! [
-		   hDC [integer!]
-		   hRC [integer!]
-		   ] opengl-lib "wglMakeCurrent"
-
-		wglGetCurrentContext: make routine! [
-		   return: [integer!]
-		   ] opengl-lib "wglGetCurrentContext"
-
-		wglGetCurrentDC: make routine! [
-		   return: [integer!]
-		   ] opengl-lib "wglGetCurrentDC"
-
-		wglDeleteContext: make routine! [
-		   hRC [integer!]
-		] opengl-lib "wglDeleteContext"
 
 		opengl-lib-obj/title: title
 		opengl-lib-obj/face: face
 		opengl-lib-obj/posx: any [opengl-lib-obj/posx opengl-lib-obj/face/offset/x]
 		opengl-lib-obj/posy: any [opengl-lib-obj/posy opengl-lib-obj/face/offset/y]
 		face: view/new/title/offset/options make face [hDC: wdat: none] title as-pair opengl-lib-obj/posx opengl-lib-obj/posy any [opts [resize]]
+		opengl-lib-obj/window: face
 		;face/user-data: reduce ['size face/size]
 		if not get in opengl-lib-obj 'event-func [
 			opengl-lib-obj/event-func: insert-event-func func [face event] [
@@ -2874,7 +2793,7 @@ if System/version/4 = 3 [
 					]
 					inactive [opengl-lib-obj/displayFunc]
 					minimize [if get in opengl-lib-obj 'visibilityFunc [opengl-lib-obj/visibilityFunc GLUT_NOT_VISIBLE]]
-					;close [glut-CleanUp] ; better let user handle this (or add closeFunc?)
+					close [opengl-lib-obj/loop: false];glut-CleanUp] ; better let user handle this (or add closeFunc?)
 					scroll-line [if get in opengl-lib-obj 'scrollFunc [opengl-lib-obj/scrollFunc event/offset/y]]
 				]
 				]
@@ -2884,28 +2803,176 @@ if System/version/4 = 3 [
 		]
 		opengl-lib-obj/loop: true
 
-		face/hDC: hDC: getdc findwindow 0 join "REBOL - " title
+		switch/default System/version/4 [
+		3 [
+			PIXELFORMATDESCRIPTOR-def: [
+			   nSize [short]
+			   nVersion [short]
+			   dwFlags [integer!]
+			   iPixelType [char!]
+			   cColorBits [char!]
+			   cRedBits [char!]
+			   cRedShift [char!]
+			   cGreenBits [char!] 
+			   cGreenShift [char!] 
+			   cBlueBits [char!] 
+			   cBlueShift [char!] 
+			   cAlphaBits [char!] 
+			   cAlphaShift [char!] 
+			   cAccumBits [char!] 
+			   cAccumRedBits [char!] 
+			   cAccumGreenBits [char!] 
+			   cAccumBlueBits [char!] 
+			   cAccumAlphaBits [char!] 
+			   cDepthBits [char!] 
+			   cStencilBits [char!] 
+			   cAuxBuffers [char!] 
+			   iLayerType [char!] 
+			   bReserved [char!]
+			   dwLayerMask [integer!]
+			   dwVisibleMask [integer!]
+			   dwDamageMask [integer!]
+			]
+			{pfd constants}
+				PFD_DOUBLEBUFFER: 1
+				PFD_STEREO: 2
+				PFD_DRAW_TO_WINDOW: 4
+				PFD_DRAW_TO_BITMAP: 8
+				PFD_SUPPORT_GDI: 16
+				PFD_SUPPORT_OPENGL: 32
+				PFD_GENERIC_FORMAT: 64
+				PFD_NEED_PALETTE: 128
+				PFD_NEED_SYSTEM_PALETTE: 256
+				PFD_SWAP_EXCHANGE: 512
+				PFD_SWAP_COPY: 1024
+				PFD_SWAP_LAYER_BUFFERS: 2048
+				PFD_GENERIC_ACCELERATED: 4096
+				PFD_SUPPORT_DIRECTDRAW: 8192
+				PFD_TYPE_RGBA: to-char 0
+				PFD_TYPE_COLORINDEX: to-char 1 
+				PFD_MAIN_PLANE: to-char 0
+				PFD_OVERLAY_PLANE: to-char 1
+				PFD_UNDERLAY_PLANE: to-char 255
 
-		SetPixelFormat hDC ChoosePixelFormat hDC pfd pfd
+			pfd: make struct! PIXELFORMATDESCRIPTOR-def none
 
-		hRC: wglCreateContext hDC
-		oldhRC: wglGetCurrentContext
-		oldhDC: wglGetCurrentDC
-		wglMakeCurrent hDC hRC
-		
-		face/wdat: reduce [user32 gdi32 opengl oldhDC oldhRC hDC hRC]
-		opengl-lib-obj/window: face
+			pfd/nSize: length? third pfd
+			pfd/nVersion: 1
+			pfd/dwFlags: PFD_DRAW_TO_WINDOW or PFD_SUPPORT_OPENGL
+			if (opengl-lib-obj/mode and GLUT_DOUBLE) <> 0 [pfd/dwFlags: pfd/dwFlags or PFD_DOUBLEBUFFER]
+			pfd/iPixelType: PFD_TYPE_RGBA
+			pfd/cColorBits: to-char 24
+			pfd/cDepthBits: to-char 32
+			pfd/iLayerType: PFD_MAIN_PLANE
+
+			user32: load/library %user32.dll
+			gdi32: load/library %gdi32.dll
+			;opengl: load/library %Opengl32.dll
+
+			FindWindow: make routine! [class [string!] name [int] return: [int]] user32 "FindWindowA"
+			GetDC: make routine! [hWnd [integer!] return: [integer!]] user32 "GetDC"
+			ReleaseDC: make routine! [hWnd [integer!] hDC [integer!]] user32 "ReleaseDC"
+			ChoosePixelFormat: make routine! compose/deep/only [hdc [integer!] ppfd [struct! (PIXELFORMATDESCRIPTOR-def)] return: [integer!]] gdi32 "ChoosePixelFormat"
+			SetPixelFormat: make routine! compose/deep/only [hdc [integer!] iPixelFormat [integer!] ppfd [struct! (PIXELFORMATDESCRIPTOR-def)] return: [integer!]] gdi32 "SetPixelFormat"
+			SwapBuffers: make routine! [hDC [integer!] return: [integer!]] gdi32 "SwapBuffers"
+			wglCreateContext: make routine! [hDC [integer!] return: [integer!]] opengl-lib "wglCreateContext"
+			wglMakeCurrent: make routine! [hDC [integer!] hRC [integer!]] opengl-lib "wglMakeCurrent"
+			wglGetCurrentContext: make routine! [return: [integer!]] opengl-lib "wglGetCurrentContext"
+			wglGetCurrentDC: make routine! [return: [integer!]] opengl-lib "wglGetCurrentDC"
+			wglDeleteContext: make routine! [hRC [integer!]] opengl-lib "wglDeleteContext"
+
+			face/hDC: hDC: GetDC FindWindow "REBOLWind" 0
+
+			SetPixelFormat hDC ChoosePixelFormat hDC pfd pfd
+
+			hRC: wglCreateContext hDC
+			oldhRC: wglGetCurrentContext
+			oldhDC: wglGetCurrentDC
+			wglMakeCurrent hDC hRC
+			
+			face/wdat: reduce [user32 gdi32 opengl oldhDC oldhRC hDC hRC]
+		]
+		4 [
+
+			{GLX constants}
+			GLX_USE_GL:		1
+			GLX_BUFFER_SIZE:		2
+			GLX_LEVEL:		3
+			GLX_RGBA:		4
+			GLX_DOUBLEBUFFER:	5
+			GLX_STEREO:		6
+			GLX_AUX_BUFFERS:		7
+			GLX_RED_SIZE:		8
+			GLX_GREEN_SIZE:		9
+			GLX_BLUE_SIZE:		10
+			GLX_ALPHA_SIZE:		11
+			GLX_DEPTH_SIZE:		12
+			GLX_STENCIL_SIZE:	13
+			GLX_ACCUM_RED_SIZE:	14
+			GLX_ACCUM_GREEN_SIZE:	15
+			GLX_ACCUM_BLUE_SIZE:	16
+			GLX_ACCUM_ALPHA_SIZE:	17
+
+			lib: %libX11.so.6
+			if not attempt [libx11-lib: load/library lib] [alert rejoin ["" lib " library not found. Quit"] quit]
+
+			XDefaultScreen: make routine! [ display [integer!] return: [integer!] ] libx11-lib "XDefaultScreen"
+			XOpenDisplay: make routine! [ display_name [string!] return: [integer!] ] libx11-lib "XOpenDisplay"
+			XCloseDisplay: make routine! [ display [integer!] return: [integer!] ] libx11-lib "XCloseDisplay"
+			XGetInputFocus: make routine! [ display [integer!] winFocus [struct! []] revert [struct! []] return: [integer!] ] libx11-lib "XGetInputFocus"
+
+			glXChooseVisual: make routine! [ dpy [integer!] screen [integer!] attribList [binary!] return: [integer!] ] opengl-lib "glXChooseVisual" 
+			glXCreateContext: make routine! [ dpy [integer!] vis [integer!] shareList [integer!] direct [integer!] return: [integer!] ] opengl-lib "glXCreateContext" 
+			glXDestroyContext: make routine! [ dpy [integer!] ctx [integer!] return: [integer!] ] opengl-lib "glXDestroyContext" 
+			glXMakeCurrent: make routine! [ dpy [integer!] drawable [integer!] ctx [integer!] return: [integer!] ] opengl-lib "glXMakeCurrent" 
+			glXSwapBuffers: make routine! [ dpy [integer!] drawable [integer!] return: [integer!] ] opengl-lib "glXSwapBuffers" 
+
+			catch [
+				if 0 = (display: XOpenDisplay "") [throw]
+
+				attrList-def: reduce [GLX_USE_GL GLX_RGBA  GLX_DEPTH_SIZE 16 GLX_RED_SIZE 1 GLX_GREEN_SIZE 1 GLX_BLUE_SIZE 1 0]
+				if (opengl-lib-obj/mode and GLUT_DOUBLE) <> 0  [insert attrList-def GLX_DOUBLEBUFFER]
+				attrList: block-to-struct head attrList-def
+
+				defs: XDefaultScreen display
+				if 0 = vinfo: glXChooseVisual display  defs  third attrList [throw]
+				if 0 = util_glctx: glXCreateContext display  vinfo  0  GL_TRUE [throw]
+
+				; Find the window which has the current keyboard focus.
+				winFocus: int-ptr
+				XGetInputFocus display winFocus int-ptr
+
+				if (0 = glXMakeCurrent display  winFocus/value  util_glctx) [throw]
+				
+				face/wdat: reduce [0 libx11-lib opengl-lib display util_glctx winFocus/value 0]
+			]
+
+		]
+		][exit];switch
+		face
 	]
 
 	glut-unview: func [/quit /local face [object!]] [
 		if face: opengl-lib-obj/window [
-			wglMakeCurrent face/wdat/4 face/wdat/5
-			wglDeleteContext face/wdat/7
-			releasedc 0 face/wdat/6
-			if quit [
-				free face/wdat/1
-				free face/wdat/2
-				;free face/wdat/3
+			switch System/version/4 [
+			3 [
+				wglMakeCurrent face/wdat/4 face/wdat/5
+				wglDeleteContext face/wdat/7
+				releasedc 0 face/wdat/6
+				if quit [
+					free face/wdat/1
+					free face/wdat/2
+					;free face/wdat/3
+				]
+			]
+			4 [
+				if face/wdat/5 [glXMakeCurrent face/wdat/4 0 0]
+				glXDestroyContext face/wdat/4 face/wdat/5
+				XCloseDisplay face/wdat/4
+				if quit [
+					free face/wdat/2
+				]
+			]
 			]
 			remove-event-func get in opengl-lib-obj 'event-func
 			unview/only face
@@ -2915,9 +2982,12 @@ if System/version/4 = 3 [
 		]
 	]
 	
-	glut-SwapBuffers: does [SwapBuffers opengl-lib-obj/window/hDC]
+	switch System/version/4 [
+		3 [glut-SwapBuffers: does [SwapBuffers opengl-lib-obj/window/hDC]]
+		4 [glut-SwapBuffers: does [glXSwapBuffers opengl-lib-obj/window/wdat/4 opengl-lib-obj/window/wdat/6]]
+	]
 
-] ;if System/version/4 = 3 
+
 
 {************************************************************
 *** example
@@ -2925,8 +2995,9 @@ if System/version/4 = 3 [
 
 ;comment [ ;uncomment this and comment next line to comment example code
 context [ ; taken from OpenGL.R Test (c) 2003 Cal Dixon
-if System/version/4 = 3 [
+if any [(System/version/4 = 3) (System/version/4 = 4)] [
 	print "Press any key while in the 3D window to quit.  Click and drag to move the cube."
+	glut-InitDisplayMode GLUT_DOUBLE or GLUT_RGB or GLUT_DEPTH ; eneable double buffering since default is single
 	glut-view "Test" layout [ size 512x512 origin 0x0
 		control: box 512x512  feel [
 			engage: func [f a e][
@@ -3074,7 +3145,7 @@ if System/version/4 = 3 [
 
 		glEnd
 		glPopMatrix
-			
+
 		glut-SwapBuffers
 
 		theta: theta + thetabump

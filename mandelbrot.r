@@ -5,7 +5,7 @@ REBOL [
     File: %mandelbrot.r
     Author: "Keith Ray"
     Purpose: "Create Mandelbrot Set "
-    Email: keithray@yahoo.com
+    Email: %keithray--yahoo--com
     library: [
         level: none 
         platform: none 
@@ -72,7 +72,7 @@ calc-pixel: func [xPixel yPixel] [
 ]
 
 x-siz: 300 y-siz: 400           
-im: to-image to-pair reduce [x-siz y-siz]
+im: make image! 300x400
 bg-color: 255.255.220
 clear-im im bg-color    
 
@@ -93,4 +93,3 @@ view layout [
 
     button "Quit" [quit]
 ]
-                                                                                      

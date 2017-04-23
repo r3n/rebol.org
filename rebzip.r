@@ -1,7 +1,7 @@
 REBOL [
     Title: "rebzip"
-    Date: 13-Jan-2005
-    Version: 1.0.0
+    Date: 17-Jul-2009
+    Version: 1.0.1
     File: %rebzip.r
     Author: "Vincent Ecuyer"
     Purpose: "Zip archiver / unarchiver"
@@ -56,6 +56,10 @@ REBOL [
         a PiNG file is build with the data to decompress, letting
         'load to do the work.
     }
+    History: [
+        1.0.0 [13-Jan-2005 "First version"]
+        1.0.1 [17-Jul-2009 "Bugfix: empty files compressed with 'deflate now properly handled"]
+    ]
     Library: [
         level: 'advanced
         platform: 'all
@@ -65,6 +69,7 @@ REBOL [
             view 1.2.1.3.1 on [Win2K]
             view 1.2.1.1.1 on [AmigaOS30]
             view 1.2.57.3.1 on [Win2K]
+            view 2.7.6.4.2 on [Linux]
         ]
         support: none
         license: 'public-domain
@@ -477,30 +482,34 @@ ctx-zip: context [
                             info "^- -> ok [store]^/"
                         ]
                         8 [
-                           data: to-binary rejoin [
-                                #{89504E47} #{0D0A1A0A} ; signature
-                                #{0000000D} ; IHDR length
-                                "IHDR" ; type: header
-                                ; width = uncompressed size
-                                to-long uncompressed-size
-                                #{00000001} ; height = 1 line
-                                #{08} ; bit depth
-                                #{00} ; color type = grayscale
-                                #{00} ; compression method
-                                #{00} ; filter method = none
-                                #{00} ; no interlace
-                                #{00000000} ; no checksum
-                                ; length
-                                to-long 2 + 6 + compressed-size
-                                "IDAT" ; type: data
-                                #{789C} ; zlib header
-                                ; 0 = no filter for scanline
-                                #{00 0100 FEFF 00}
-                                copy/part data compressed-size
-                                #{00000000} ; no checksum
-                                #{00000000} ; length
-                                "IEND" ; type: end
-                                #{00000000} ; no checksum
+                            data: either zero? uncompressed-size [
+                                copy #{}
+                            ][
+                                to-binary rejoin [
+                                    #{89504E47} #{0D0A1A0A} ; signature
+                                    #{0000000D} ; IHDR length
+                                    "IHDR" ; type: header
+                                    ; width = uncompressed size
+                                    to-long uncompressed-size
+                                    #{00000001} ; height = 1 line
+                                    #{08} ; bit depth
+                                    #{00} ; color type = grayscale
+                                    #{00} ; compression method
+                                    #{00} ; filter method = none
+                                    #{00} ; no interlace
+                                    #{00000000} ; no checksum
+                                    ; length
+                                    to-long 2 + 6 + compressed-size
+                                    "IDAT" ; type: data
+                                    #{789C} ; zlib header
+                                    ; 0 = no filter for scanline
+                                    #{00 0100 FEFF 00}
+                                    copy/part data compressed-size
+                                    #{00000000} ; no checksum
+                                    #{00000000} ; length
+                                    "IEND" ; type: end
+                                    #{00000000} ; no checksum
+                                ]
                             ]
 
                             either error? try [data: load data][

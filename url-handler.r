@@ -13,6 +13,12 @@ REBOL [
            }
   Date: 16-Aug-2003
   History: [
+             30-Jan-2009 {Fixed a bug in block (non-existant!) sorting.}
+             17-Jun-2007 {Moved the decode-cgi-query function out of the context.
+                          Added a check for relative URLs when host or protocol field is empty.
+                          Fixed a bug that would cause lacking slashes in URLs with "../" sequences.}
+             30-May-2007 {Removed a bug that caused URLs with more than one occurance of «://» to be
+                          parsed wrongly in 'init (although decent URLs would escape that sequence).}
              03-Jan-2006 {Added /from-path-only refinement to 'as-string.}
              20-Apr-2005 {Trying make error! instead of throw...}
              04-Nov-2004 {Bug removed from alphabetization of CGI parameters.}
@@ -71,6 +77,37 @@ REBOL [
   ]
 ]
 
+decode-cgi-query: func [
+    ; function copied from http://www.rebol.org/cgi-bin/cgiwrap/rebol/view-script.r?color=yes&script=cgidecode.r
+    ; slightly modified (to remove a few small bugs). Because of colons, spaces and percent signs appearing
+    ; wherever they want in URLs, loading values is impossible. And since I don't need the values as such, but
+    ; only store them for comparison, I just keep them as strings.
+    ; line 109 (4th in function) was:
+    ;          (append list either find val ":" [to-string load val] [to-string load head insert val "%"])]
+    ; But alas, not even that was CGI-fool proof
+    ; Otherwise: thanks, Carl.
+    "Convert CGI argument string to a list of words and value strings"
+    args [any-string!] "Starts at first argument word"
+    /local list equate value name val
+][
+    list: make block! 8
+    equate: [copy name to "=" "=" (append list to-set-word to-string name) value]
+    value: [["&" | end] (append list none) | [copy val to "&" "&" | copy val to end]
+         (append list to-string val)]
+    parse/all args [some equate | none]
+    ; then alphabethize the block:
+    other-list: copy []
+    forskip list 2 [
+      inserted?: no
+      forskip other-list 2 [
+        if < first list first other-list [insert other-list reduce [first list second list] inserted?: yes break]
+      ]
+      if not inserted? [insert other-list reduce [first list second list]]
+      other-list: head other-list
+    ]
+    head other-list
+]
+
 url-handler-object: context [
 
   ; 'context should automatically pick up set-words
@@ -88,36 +125,6 @@ url-handler-object: context [
   rest: ""
   url: ""
 
-  decode-cgi-query: func [
-      ; function copied from http://www.rebol.org/cgi-bin/cgiwrap/rebol/view-script.r?color=yes&script=cgidecode.r
-      ; slightly modified (to remove a few small bugs). Because of colons, spaces and percent signs appearing
-      ; wherever they want in URLs, loading values is impossible. And since I don't need the values as such, but
-      ; only store them for comparison, I just keep them as strings.
-      ; line 101 was:
-      ;          (append list either find val ":" [to-string load val] [to-string load head insert val "%"])]
-      ; But alas, not even that was CGI-fool proof
-      ; Otherwise: thanks, Carl.
-      "Convert CGI argument string to a list of words and value strings"
-      args [any-string!] "Starts at first argument word"
-      /local list equate value name val
-  ][
-      list: make block! 8
-      equate: [copy name to "=" "=" (append list to-set-word to-string name) value]
-      value: [["&" | end] (append list none) | [copy val to "&" "&" | copy val to end]
-           (append list to-string val)]
-      parse/all args [some equate | none]
-      ; then alphabethize the block:
-      other-list: copy []
-      forskip list 2 [
-        inserted?: no
-        forskip other-list 2 [
-          if < first list first other-list [insert other-list reduce [first list second list] inserted?: yes break]
-        ]
-        if not inserted? [insert other-list reduce [first list second list]]
-        other-list: head other-list
-      ]
-      head other-list
-  ]
 
   init: func [ /local relative? ] [
 
@@ -129,6 +136,11 @@ url-handler-object: context [
     if 0 = length? rest [
       make error! join  "No URL to parse: " mold url
     ]
+
+    if all [#"#" = first url any ["" = protocol "" = host]] [
+      make error! join "Can't initialize relative url " join url " when host or protocol field is empty!"
+    ]
+
     relative?: all [#"#" = first url "" <> protocol "" <> host]
 
     either section: find rest "#"    [ section: copy section
@@ -138,11 +150,11 @@ url-handler-object: context [
     if 0 = length? rest [
       either relative? [ rejoin-it return ] [ make error! join "No URL to parse: " mold url]
     ]
+
     either query-part: find rest "?" [ query-part: copy query-part
                                        rest: head remove/part find rest "?" length? query-part
-
                                        query-block: decode-cgi-query remove copy query-part
-
+                                       sort/skip query-block 2
                                      ]
                                      [ query-part: "" ]
 
@@ -174,12 +186,14 @@ url-handler-object: context [
     either relative? [
 
       ; protocol and host supposedly known.
-      if any ["" = protocol "" = host] [make error! join "Lacking protocol and/or host information: " url "(How could this happen?)"]
+      if any ["" = protocol "" = host] [make error! join "Lacking protocol and/or host information: " url " (how could this happen?)"]
 
       if "" = rest [
         rejoin-it
         return
       ]
+
+      ; if rest starts with a slash, the whole path is to be replaced, else simply attach:
       path: either #"/" = first rest [ copy rest ] [ join path rest ]
 
       if not any [none? path "" = path] [
@@ -197,9 +211,9 @@ url-handler-object: context [
       ; protocol must be the first thing in the url string.
 
       ;rest: any [find/match url "ftp://" find/match url "http://"]
-      rest: find/match/any url "*://" ; noen ganger kommer det "//" om igjen senere i en url
+      rest: find/match/any/part url "*://" 8 ; noen ganger kommer det "//" om igjen senere i en url
                                       ; (ved en feil!), og da krasjer vi like under her.
-                                      ; (6.11.04:) Det m� jo v�re "://" for at det skal krasje??
+                                      ; (6.11.04:) Det må jo være "://" for at det skal krasje??
 
       protocol: copy/part head rest (index? rest) - 1
 
@@ -240,7 +254,6 @@ url-handler-object: context [
 
     ] ; end either relative?
 
-
     rejoin-it
 
   ] ; end init
@@ -249,26 +262,22 @@ url-handler-object: context [
   rejoin-it: func [] [
     ; first remove ../ sequences:
     if find path "../" [
-      parts: parse path "/"
+      parts: parse/all path "/"
       while [i: find parts ".."] [remove remove back i]
       while [i: find parts ""] [remove i]
-      forall parts [
-        insert parts "/"
-        parts: next parts
-      ]
+      forall parts [ insert parts "/" parts: next parts ]
+      append parts "/"
       path: rejoin head parts
       if 0 = length? path [path: "/"]
     ]
 
     ; then remove ./ sequences:
     if find path "./" [
-      parts: parse path "/"
+      parts: parse/all path "/"
       while [i: find parts "."] [remove i]
       while [i: find parts ""] [remove i]
-      forall parts [
-        insert parts "/"
-        parts: next parts
-      ]
+      forall parts [ insert parts "/" parts: next parts ]
+      append parts "/"
       path: rejoin head parts
       if 0 = length? path [path: "/"]
     ]
@@ -295,7 +304,7 @@ url-handler-object: context [
         ]
       ]
     ]
-  ]
+  ] ; end rejoin-it
 
   canonical: func [] [
     either user-name = "" [
@@ -307,29 +316,28 @@ url-handler-object: context [
         rejoin [protocol user-name ":" password "@" host ":" port path file query-part section]
       ]
     ]
-  ]
+  ] ; end canonical
 
   as-string: func [/regard-section /regard-cgi-order /from-path-only] [
     trew: rejoin either regard-cgi-order [
+      either from-path-only [ [ path file query-part ] ]    [ [ protocol host path file query-part ] ]
+    ] [
       trs: copy "?"
       forskip query-block 2 [
         append trs join first query-block join "=" join either none? second query-block [""] [second query-block] "&"
       ]
       remove back tail trs
       query-block: head query-block
-      either from-path-only [ [ path file trs ] ] [ [ protocol host path file trs ] ]
-    ] [
-      either from-path-only [ [ path file query-part ] ] [ [ protocol host path file query-part ] ]
+      either from-path-only [ [ path file trs ] ]           [ [ protocol host path file trs ] ]
     ]
     if regard-section [append trew section]
     trew
-  ]
-
+  ] ; end as-string
 
   move-to: func [ target ] [
     url: copy target
     init
-    as-string ; just to return something. To avoid the 'need-value error report in other scripts using this one
+    as-string ; just to return something.
   ] ; end move-to
 
   equal?: func [ other-url /regard-section /regard-cgi-order] [
@@ -346,11 +354,12 @@ url-handler-object: context [
                   query-part-ok?
                   section-ok?
                ]
-    [true] [false]
-  ]
+          [ true ] [ false ]
+  ] ; end equal?
+
+] ; end url-handler-object
 
 
-]
 
 ; shortcut:
 url-handler: func [ st [string!] /local s] [

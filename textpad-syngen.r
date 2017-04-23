@@ -1,14 +1,15 @@
 REBOL [
     Title:   "Textpad syntax generator"
-    Date:    25-Aug-2003
+    Date:    7-Sep-2010
     File:    %textpad-syngen.r
     Author:  "John Kenyon"
-    Version: "0.4"
+    Version: "0.5"
     Purpose: {
         Textpad syntax generator for Textpad 4.4 (and above)
         Highlighter gets lost with {{}}
     }
     History: {
+        0.5 7-Sep-2010 "Updates to a few fields after reading Paul Tretter's rebol.syn"
         0.4 25-Aug-2003 "Removed StringEsc and CharEsc"
         0.3 16-Aug-2001 "Now displays file req only in view and asks in core"
         0.2 20-Apr-2001 "Fixed a few issues"
@@ -20,16 +21,15 @@ REBOL [
         type: [tool]
         domain: [markup text]
         tested-under: [
-        	core 2.5.2.3.1 WinNT
-        	view 1.2.10.3.1 WinNT
+        	view 2.7.7.3.1 WinXP
         ]
-        support: john_kenyon::mlc::com::au
+        support: johnkenyon.au@gmail.com
         license: 'PD
         see-also: none
     ]
 ]
 
-basic-syntax-header: rejoin [
+basic-syntax-header: [
 {; TextPad syntax definitions for Rebol (http://www.rebol.com)
 ; JKenyon generated } now/date
 {
@@ -46,7 +46,10 @@ OperatorChars =
 PreprocStart =
 SyntaxStart =
 SyntaxEnd =
+CommentStart = comment {
+CommentEnd = }
 CommentStartAlt =
+CommentEndAlt =
 SingleComment = ;
 SingleCommentEsc =
 StringStart = {
@@ -54,8 +57,8 @@ StringEnd = }
 StringsSpanLines = Yes
 StringAlt = "
 StringEsc =
-CharStart =
-CharEnd =
+CharStart = &
+CharEnd = ;
 CharEsc =
 
 } ;" -> to close StringAlt =
@@ -112,7 +115,7 @@ emit: func [ val ] [
 ]
 
 ; Now generate the file
-emit basic-syntax-header
+emit rejoin basic-syntax-header
 foreach [ keyword word-type ] mapping [
     emit [ newline "[" keyword "]" newline ]
     emit [ find-by-type word-type ]
@@ -128,6 +131,6 @@ either error? try [ view? ] [
     foreach word system/view/vid/vid-words [
         emit [ word newline ]
     ]
-    out-file: request-file/title/file/filter "Location to save Rebol Textpad syntax file" "Save" "/c/Program Files/TextPad 4/Samples/rebol.syn" "*.syn"
+    out-file: request-file/title/file/filter "Location to save Rebol Textpad syntax file" "Save" "/c/Program Files/TextPad 5/System/rebol.syn" "*.syn"
     if  not none? out-file [ write first out-file outstr ]
 ]

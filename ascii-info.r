@@ -5,16 +5,15 @@ REBOL [
     File: %ascii-info.r
     Author: "Ryan S. Cole"
     Purpose: "Basically an ASCII chart."
-    Email: ryancole@usa.com
+    Email: ryan@practicalproductivity.com
     library: [
         level: 'beginner 
-        platform: none 
+        Platform: 'all
         type: [Demo Tool] 
-        domain: 'GUI 
-        tested-under: none 
-        support: none 
-        license: none 
-        see-also: none
+        domain: 'GUI
+        tested-under: [core 1.3.2.3.1 "windows 98"]
+        support: none
+        license: 'public-domain
     ]
 ]
 

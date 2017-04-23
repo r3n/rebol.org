@@ -2,15 +2,16 @@ rebol [
 	title: "LIQUID - core dataflow programming engine."
 	; -- basic rebol header --
 	file: 		%liquid.r
-	version:	0.6 ; bump.r 
-	date: 		2006-11-01 ; bump.r 
+	version:	0.8.1
+	date: 		2009-03-28
 	author:		"Maxim Olivier-Adlhoch"
-	copyright:	"Copyright (c) 2004-2006 Maxim Olivier-Adlhoch"
+	copyright:	"Copyright (c) 2004-2009 Maxim Olivier-Adlhoch"
 
 	;-- slim parameters --
 	slim-name: 	'liquid
 	slim-prefix: none
-	slim-version: 0.9.5.7
+	slim-version: 0.9.12
+	
 	
 	
 	;-- REBOL.ORG header --
@@ -19,7 +20,7 @@ rebol [
 		platform:       'all
 		type:           [ module ]
 		domain:         [ external-library scientific ]
-		tested-under:   [win view 1.3.2 sdk 2.6.2]
+		tested-under:   [win view 2.7.5 2.7.6 sdk 2.7.5 2.7.6]
 		support:        "http://www.pointillistic.com/open-REBOL/moa/steel/liquid/index.html"
 		license:        'MIT
 	]
@@ -29,7 +30,7 @@ rebol [
 	purpose:	"Create procedural processing networks."
 	notes:		"Needs STEEL|LIBRARY MANAGER (slim) package to be installed prior to usage."
 	e-mail:		"moliad a-t aei d-o-t ca"
-	license:    {Copyright (c) 2004-2006, Maxim Olivier-Adlhoch
+	license:    {Copyright (c) 2004-2009, Maxim Olivier-Adlhoch
 
 		Permission is hereby granted, free of charge, to any person obtaining a copy of this software 
 		and associated documentation files (the "Software"), to deal in the Software without restriction, 
@@ -49,7 +50,8 @@ rebol [
 	
 	to-do: {
 		-----------------
-		NOTE - probably not be up to date or even valid:
+		NOTE -  to do list is rarely maintained,
+		        its probably not up to date or even valid:
 		-----------------
 		-link() does not consider pipes as exclusive connections.. pipe connections should always operate
 		 in exclusive mode, so at the top of the func, it should enable "/exclusive" for pipes. 
@@ -57,13 +59,28 @@ rebol [
 		-support string! on link() and unlink() label modes?
 		-link()/attach (link to subordinate's pipe) TO DO
 		-add more return values to functions like link, fill and connect, to allow interactive reactions to failed operations...
-		-propagate any state, not just dirty. (ex: error)
 		-make ALL func tails (returns) GC friendly
-		-make "fast" version of lib: no vprint, no GC cleanup.
-		-support label being present in list more than once (complements exclusive wrt labeled linking mode)
+		- differentiate debug and prod versions of the library
+		   (same library with some error recovery removed, and vprinting excluded, for production code)
 		-once piped, a plug should not become dirty, unless its pipe is dirty.  It should ignore any dirty
 		 calls comming from its (temporarily useless) subordinates.
+		-support label being present in list more than once (complements exclusive wrt labeled linking mode)
 		-when attaching two piped plugs, add a callback to allow a pipe server to de-allocate itself safely when it detects it has no more pipe clients.
+		
+		** v2 proposals **
+		-PUSH-MODE PROPAGATION OF PARAMETERS to all observers.
+		 doesn't actually start processing, but distributes a set of values within a graph.
+		-PROPATE ANY STATE, not just dirty. (ex: error), a subset of above
+		-PARAMETER & CONTAINER INDEXED CACHING, caching of liquid is based on a key set of parameters, allowing us to
+		 reload past processing!
+		-CLASS-WIDE LINKS! all instances share links (allows VERY fast manipulation of global state without needing to 
+		 link each instance separatly)
+		-SUBORDINATE CONTAINMENT (like a fill, directly stored in subordinate block.)  allows us to simulate
+		 a node which is connected to several subordinate containers, without the need to actually allocate any of them.
+		
+	}
+	
+	changes: {
 	}
 	
 	history: {
@@ -119,7 +136,7 @@ rebol [
 		-renamed plug! to !plug (no clash with real types)
 		-officially added !node alias to !plug (to ease adoption)
 		-liquify/link properly support single plug! spec (it used to support only a block of plugs)
-		-added linked-container attribute to !plug
+		-added linked-container? attribute to !plug
 		-fill now creates a container (simple pipe) rather than a pipe (linked pipe) by default.
 		-added word! clash protection on link labels, so that instigate code can separate labels from actual word! type data (not 100% fault tolerant, but with documentation, it becomes easy to prevent).
 
@@ -135,12 +152,71 @@ rebol [
 		-quick release cleanup.
 		-version major
 
-	v$bump-version - $bump-date/$bump-time ($bump-user)
+	v0.6.1 - 27-Nov-2006/15:01:40 (MOA)
+		-added pipe function, with optional /with refinement.  makes piping more explicit.
+		-fixed linked-container? mode handling here and there.
+
+	v0.6.2 - 12-Dec-2006/22:35:25 (MOA)
+		-fixed a rare linking setup, when you supply none! as the subordinate to create orphaned links.
 
 
-	$bump-source[v$bump-v - $bump-d/$bump-t ($bump-u)]
+	v0.6.3 - 12-Dec-2006/22:55:18 (MOA)
+
+
+	v0.6.4 - 4-Feb-2007/7:01:06 (MOA)
+		-adding the commit feature.  vastly simplifying many plug uses.
+		-not yet implemented commit, but layed out the design for future compatibility.
+
+
+	v0.6.5 - 19-Feb-2007/22:35:54 (MOA)
+
+	v0.6.5 - 13-Apr-2007/19:02:42 (MOA)
+
+	v0.6.6 - 13-Apr-2007/19:02:58 (MOA)
+
+	v0.6.7 - 20-Apr-2007/2:59:58 (Unknown)
+
+	v0.6.8 - 29-Apr-2007/7:55:52 (Unknown)
+
+	v0.6.9 - 30-Apr-2007/16:56:30 (Unknown)
+		-added insubordinate method.
+		-added /with refinement to liquid
+
+	v0.6.10 - 30-Apr-2007/22:07:40 (Unknown)
+		-now clears sid in destroy (extra mem cleanup)
+
+	v0.6.11 - 11-May-2007/0:46:56 (Unknown)
+		-added reset refinement to link and valve/link
+
+	v0.6.14 - 11-Jul-2007/19:46:17 (MOA)
+
+	v0.6.15 - 15-Jul-2007/0:58:46 (Unknown)
+
+
+	v0.6.17 - 16-Jul-2007/22:57:02 (MOA)
+
+	v0.7.0 - 7-Mar-2009/00:54:04(MOA)
+		-added PIPE-SERVER-CLASS functionality to ease custom pipe management
+		-fixed minor fill bug related to binding in rebol sub-objects
 		
+	v0.7.1 - 8-Mar-2009/05:54:04(MOA)
+		-fixed regression in link() where a word was deleted from the code for some unknown reason, breaking the function on un-piped nodes.
+		-added FROZEN? and related functionality. can be set to a function for powerfull dynamic node freezing.
+		
+	v0.7.2 - 8-Mar-2009/21:25:55(MOA)
+		-officially deprecated and REMOVED SHARED-STATES from the whole module
+		-ON-LINK() 
+	
+	v0.8.0 - 15-Mar-2009/00:00:00(MOA)
+		-adding stream engine for propagation-style inter-node messaging.
+		-STREAM() added for look-ahead messaging (ask observers to react to us)
+		-ON-STREAM() added to support callbacks when linkeage changes.
+		
+	v0.8.1 - 28-Mar-2009/00:00:00(MOA)
+		-PROPAGATE?() added to valve - allows us to optimise lazyness in some advanced plugs
+		-LINK?() regression found and fixed... cycle?() was not being used anymore!
 	}
+	
 ]
 
 ;----
@@ -156,11 +232,17 @@ slim/register [
 
 	; next sid to assign to any liquid plug.
 	; and also tells you how many plugs have been registered so far.
+	;-    liquid-sid-count:
 	liquid-sid-count: 0
 
 
+	;----
+	;-    plug-list:
+	plug-list: make hash! none
+
+
 	;-----------------------------------------
-	;-     alloc-sid
+	;-    alloc-sid()
 	;-----------------------------------------
 	; currently the sid is a simple number, but
 	; could become something a bit stronger in time,
@@ -172,7 +254,15 @@ slim/register [
 	]
 
 
-
+	;--------------------
+	;-    retrieve-plug()
+	;--------------------
+	retrieve-plug: select-plug: func [
+		"return the plug related to an sid stored in the global plug-list"
+		sid
+	][
+		select plug-list sid
+	]
 
 
 	;-
@@ -180,56 +270,71 @@ slim/register [
 	;- FUNCTIONS!
 	;-----------------------
 	;-----------------------
-	;-     liquify
+	;-    liquify()
+	;-----------------------
+	; v0.6.6 change!!! shared-states are now EXPLICITELY shared from type to instance.
+	;                  if you want a set of plugs to share their own shared-states, 
+	;                  change it in the reference type object!
 	;-----------------------
 	liquify: func [
-		type "Plug class object."
+		type [object!] "Plug class object."
 		/with spec "Attributes you wish to add to the new plug ctx."
 		/as valve-type "shorthand to derive valve as an indepent from supplied type, this sets type/valve/type"
 		/fill data "shortcut, will immediately fill the liquid right after its initialisation"
+		/piped "since fill now makes containers by default, this will tell the engine to make it a pipe beforehand."
 		/link plugs [block! object!]
 		/label lbl [word!] "specify label to link to (no use unless /link is also provided)"
 		/local plug
 	][
+		vin "liquify*()"
 		spec: either none? spec [[]][spec]
 		
 		; unify plugs datatype
-		plugs: compose [(plugs)]
+;		plugs: compose [(plugs)]
 
-		unless none? plugs [
-			plugs: reduce plugs
+		if object? plugs [
+			plugs: compose [(plugs)]
 		]
 		
 		if as [
 			spec: append copy spec compose/deep [valve: make valve [type: (to-lit-word valve-type)]]
 		]
 		plug: make type spec
+		;plug/shared-states: type/shared-states
+		
 		plug/valve/init plug
+		
+		if piped [
+			plug/valve/new-pipe plug
+		]
 		
 		if fill [
 			plug/valve/fill plug data
 		]
 		if link [
-			forall plugs [
-				either lbl [
-					plug/valve/link/label plug first plugs lbl
-				][
-					plug/valve/link plug first plugs
-				]
-			]
+			vprint ["I should link! " plug/valve/type]
+			;print "#################################"
+			link*/label plug plugs lbl
+;			forall plugs [
+;				either lbl [
+;					plug/valve/link/label plug first plugs lbl
+;				][
+;					plug/valve/link plug first plugs
+;				]
+;			]
 		]
-		
+		vout
 		return first reduce [plug plug: plugs: data: none] ; clean GC return
 	]
 
 	;-----------------------------------------
-	;-     true?
+	;-    true?()
 	;-----------------------------------------
 	true?: func [value][value = true]
 
 
 	;------------------------------
-	;-     count 
+	;-    count()
 	;---
 	while*: get in system/words 'while
 	count: func [;
@@ -280,7 +385,7 @@ slim/register [
 
 	
 	;-----------------------------------------
-	;-     fill
+	;-    fill()
 	;-----------------------------------------
 	fill: func [
 		"shortcut for a plug's fill method"
@@ -290,9 +395,26 @@ slim/register [
 		plug/valve/fill plug value
 	]
 	
-
+	
 	;-----------------------------------------
-	;-     content
+	;-    pipe()
+	;-----------------------------------------
+	pipe: func [
+		"converts a plug into a pipe"
+		plug [object!]
+		/with val
+	][
+		unless with [
+			val: plug/valve/content plug
+		]
+		plug/valve/new-pipe plug val
+		plug: val: none
+	]
+	
+	
+	
+	;-----------------------------------------
+	;-    content()
 	;-----------------------------------------
 	content: func [
 		"shortcut for a plug's content method"
@@ -301,29 +423,153 @@ slim/register [
 		plug/valve/cleanup plug
 	]
 	
-
+	cleanup: :content
+	
+	
+	;-----------------
+	;-    dirty()
+	;-----------------
+	dirty: func [
+		plug
+	][
+		vin [{liquid/dirty()}]
+		plug/valve/dirty plug
+		vout
+	]
+	
+	
 
 	;-----------------------------------------
-	;-     link
+	;-    link()
 	;-----------------------------------------
 	link: func [
 		"shortcut for a plug's link method"
 		observer [object!]
 		subordinate [object! block!]
-		/label lbl 
-		/local blk
+		/label lbl [word! none!]
+		/reset "will call reset on the link method (clears pipe or container constraints, if observer is piped)"
+		/exclusive "Only allow one link per label or whole unlabled plug"
+		/local blk val
 	][
-		blk: compose [(subordinate)]
+		vin ["liquid-lib/link*[" observer/sid "]"]
+		;probe first subordinate
+		;probe mold/all head subordinate
+		
+		either block? subordinate [
+			;probe subordinate
+			;vprobe reduce ["linking a block of plugs: " extract subordinate 2]
+			;probe length? subordinate
+			forall subordinate [
+				vprint "=============="
+				vprint type? ; (of val)
+				val: pick subordinate 1
+				
+				either any [
+					set-word? :val
+					lit-word? :val
+				][
+					vprint "@@@@@@@@@@"
+					vprobe pick subordinate 1
+					change subordinate to-word val
+				][
+					;print ["APPLYING :  type?: " type? val]
+					 
+					change subordinate do val
+					;probe type? pick subordinate -1
+				]
+			]
+			blk: subordinate: head subordinate
+		][
+			blk: subordinate: compose [(subordinate)]
+		]
+		;vprint "$$$$$$$$$"
+		vprobe type? subordinate
+		vprobe length? subordinate
+		;blk:  compose [(subordinate)]
 		foreach subordinate blk [
-			either label [
-				observer/valve/link/label observer subordinate lbl
+			; we can now specify the label directly within the block, so we can spec a whole labeled 
+			; link setup in one call to link
+			either word? subordinate [
+				lbl: subordinate
+				;vprobe "#####"
+				v?? lbl
 			][
-				observer/valve/link observer subordinate
+				;vprobe "-"
+				vprobe type? subordinate
+				vprobe subordinate/valve/type
+				
+				any [
+					all [lbl reset       observer/valve/link/label/reset observer subordinate lbl]
+					all [lbl exclusive   observer/valve/link/label/exclusive observer subordinate lbl]
+					all [lbl             observer/valve/link/label observer subordinate lbl]
+					all [reset           observer/valve/link/reset observer subordinate ]
+					all [exclusive       observer/valve/link/exclusive observer subordinate ]
+					observer/valve/link observer subordinate
+				]
 			]
 		]
+		vout
 	]
 	
+	
+	;-----------------
+	;-    attach()
+	;-----------------
+	attach: func [
+		observer
+		pipe
+	][
+		vin [{attach()}]
+		observer/valve/attach observer pipe
+		vout
+	]
+	
+	
+	
+	; just memorise so we can use this enhanced version within liquify
+	link*: :link
 
+
+	;--------------------
+	;-    objectify()
+	;--------------------
+	objectify: func [
+		"takes a process func data input and groups them into an object."
+		;plug [object!]
+		data [block!]
+		/local blk here plugs
+	][
+		vin/tags ["objectify()"] [objectify]
+		blk: compose/only [unlabeled: (plugs: copy [])]
+		parse data [
+			any [
+				[here: word! (append blk to-set-word pick here 1 append/only blk plugs: copy [])]
+				|
+				[here: skip (append plugs pick here 1)]
+			]
+		]
+		
+		
+		vout/tags [objectify]
+		
+		; parse plug/subordinates
+		context blk
+		
+	]
+
+
+	;--------------------
+	;-    is?()
+	;--------------------
+	is?: func [
+		"tries to find a word within the valve definition which matches qualifier: '*qualifier*"
+		plug [object!]
+		qualifier [word!]
+	][
+		;print "IS?"
+		found? in plug/valve to-word rejoin ["*" qualifier "*"]
+	]
+			
 
 
 
@@ -365,11 +611,57 @@ slim/register [
 		;-       dirty?:
 		;-----------------------------------------
 		; has any item above me in the chain changed?
-		; some systems will always have this set to false,
+		; some systems will always set this back to false,
 		; when they process at each change instead of deffering eval.
+		;
+		; v0.8.0 added the 'clogged state.  this is 
+		;        defined as a dirty state within the
+		;        node, but prevents any propagation
+		;        from crossing the !plug, allowing
+		;        for single refresh which doesn't
+		;        cause the whole tree to become dirty.
+		;
+		;        usefull in controled environments
+		;        especially to contain stainless?
+		;        plugs to over reach observers which
+		;        actually do not need to now about
+		;        our own local refreshes.
 		;
 		; when plugs are new, they are obviously dirty.
 		dirty?: True
+		
+		
+		;-----------------------------------------
+		;-       frozen?:
+		;-----------------------------------------
+		; this allows you to prevent a !plug from
+		; cleaning itself.  the plug remains dirty
+		; will never be processed.
+		;
+		; this is a very powerfull optimisation in many
+		; circumstances.  We often know within a manager,
+		; that a specific network has to be built before
+		; it has any meaning (several links are needed,
+		; data has to be piped, but isn't available yet, etc)
+		; normaly, if any observer is stainless? or being
+		; viewed dynamically, it will cause a chain reaction
+		; which is ultimately useless and potentially slow.
+		;
+		; imagine a graphic operation which takes a second
+		; to complete for each image linked... if you link
+		; 5 images, you end up with a fibonacci curve of wasted time
+		; thus 1 + 2 + 3 + 4 + 5 ... 13 operations, when only the last
+		; are 5 really usefull!
+		; as the data set grows, this is exponentially slow.
+		;
+		; if we freeze the node while the linking occurs,
+		; and then unfreeze it, only one process is called,
+		; with the 5 links.
+		;
+		; nodes aren't frozen by default cause it would be tedious
+		; to manage all the time, but use this when its 
+		; worth it!
+		frozen?: False
 		
 		
 		;-----------------------------------------
@@ -433,6 +725,8 @@ slim/register [
 		
 		;-----------------------------------------
 		;-       shared-states:
+		;
+		; deprecated (unused and slows down operation)
 		;-----------------------------------------
 		; this is a very special block, which must NOT be replaced arbitrarily.
 		; basically, it allows ALL nodes in a liquid session to extremely 
@@ -442,7 +736,7 @@ slim/register [
 		; where we know processing is useless, like on network init.
 		;
 		; add  'init to the shared-states block to prevent propagation whenever you are
-		; creating massive amounts of nodes. then remove the init and call dirty on all input nodes
+		; creating massive amounts of nodes. then remove the init and call cleanup on any leaf nodes
 		;
 		; the instigate func and clear func still work.  they are just
 		; not called in some circumstances.
@@ -450,16 +744,17 @@ slim/register [
 		; making new !plugs with alternate shared-states blocks, means you can separate your
 		; networks, even if they share the same base clases.
 		;-----------------------------------------
-		shared-states: []
+		;shared-states: []
+		
 		
 		
 		;-----------------------------------------
-		;-       linked-container:
+		;-       linked-container?:
 		;-----------------------------------------
 		; if set to true, this tells the processing mechanisms that you wish to have both 
 		; the linked data AND mud, which will be filtered, processed and whatever 
 		; the mud will always be the last item on the list.
-		linked-container: false
+		linked-container: linked-container?: false
 		
 		
 		
@@ -469,6 +764,17 @@ slim/register [
 		;-    VALVE (class)
 		;------------------------------------------------------
 		valve: make object! [
+			;-        qualifiers:
+			;-            *plug*
+			; normally, we'd add a word in the definition like so... but its obviously useless adding
+			; a word within all plugs
+			; the value of the qualifier is a version, which identifies which version of a specific
+			; master class we are derived from
+			; ex:
+			;
+			; *plug*: 1.0  
+			
+			
 			;--------------
 			; class name (should be word)
 			;-        type:
@@ -478,7 +784,18 @@ slim/register [
 			; used to classify types of liquid nodes.
 			;-        category:
 			category: '!plug
-	
+			
+			
+			;-----------------
+			;-        pipe-server-class:
+			; this is set to !plug just after the class is created.
+			; put the class you want to use automatically within you plug derivatives
+			pipe-server-class: none
+			
+			
+			
+			
+			
 			
 			;-      miscelaneous methods
 
@@ -495,17 +812,21 @@ slim/register [
 				/debug "step by step traversal of tree for debug purposes, should only be used when prototyping code"
 				/local cycle? index len
 			][
-				vin ["liquid/"  type  "[" plug/sid "]/cycle?" ]
+				either debug [
+					vin/always ["liquid/"  type  "[" plug/sid "]/cycle?" ]
+				][
+					vin ["liquid/"  type  "[" plug/sid "]/cycle?" ]
+				]
 				cycle?: false
 				if debug [
 					if refplug [
-						vprint ["refplug/sid: " refplug/sid ]
+						vprint/always ["refplug/sid: " refplug/sid ]
 					]
 				]
 
 				; is this a cycle?
 				either (same? plug refplug) [
-					vprint/always "liquid data flow engine Detected a connection cycle!"
+					vprint/always "WARNING: liquid data flow engine Detected a connection cycle!"
 					cycle?: true
 				][
 
@@ -522,7 +843,10 @@ slim/register [
 						len: length? plug/subordinates
 
 						until [
-							cycle?: plug/subordinates/:index/valve/cycle?/with plug/subordinates/:index refplug
+							; <FIXME> quickfix... do MUCH more testing
+							if plug/subordinates/:index [	
+								cycle?: plug/subordinates/:index/valve/cycle?/with plug/subordinates/:index refplug
+							]
 							index: index + 1
 							any [
 								cycle?
@@ -534,7 +858,11 @@ slim/register [
 
 				refplug: plug: none
 
-				vout
+				either debug [
+					vout/always
+				][
+					vout
+				]
 
 				cycle?
 			]
@@ -547,18 +875,25 @@ slim/register [
 				plug "plug to display stats about" [object!]
 				/local lbls item vbz labels
 			][
-				vin/tags  ["liquid/"  type  "[" plug/sid "]/stats" ] [!plug stats]
-				vprint/tags "================" [!plug stats]
-				vprint/tags "PLUG STATISTICS:" [!plug stats]
-				vprint/tags "================" [!plug stats]
-				vprint/tags ["LABELING:"] [!plug stats]
-				vprint/tags "---" [!plug stats]
-				vprint/tags [ "type:      " plug/valve/type ] [!plug stats]
-				vprint/tags [ "serial id: " plug/sid] [!plug stats]
-				vprint/tags "" [!plug stats]
-				vprint/tags ["LINKEAGE:"] [!plug stats]
-				vprint/tags "---" [!plug stats]
-				vprint/tags ["total links: " count plug/subordinates object! ] [!plug stats]
+				vin/always/tags  ["liquid/"  type  "[" plug/sid "]/stats" ] [!plug stats]
+				vprint/always/tags "================" [!plug stats]
+				vprint/always/tags "PLUG STATISTICS:" [!plug stats]
+				vprint/always/tags "================" [!plug stats]
+				
+				
+				vprint/always/tags "LABELING:" [!plug stats]
+				vprint/always/tags "---" [!plug stats]
+				vprint/always/tags [ "type:      " plug/valve/type ] [!plug stats]
+				vprint/always/tags [ "category:      " plug/valve/category ] [!plug stats]
+				vprint/always/tags [ "serial id: " plug/sid] [!plug stats]
+				
+				
+				vprint/always/tags "" [!plug stats]
+				vprint/always/tags "LINKEAGE:" [!plug stats]
+				vprint/always/tags "---" [!plug stats]
+				vprint/always/tags ["total subordinates: " count plug/subordinates object! ] [!plug stats]
+				vprint/always/tags ["total observers: " length? plug/observers  ] [!plug stats]
+				vprint/always/tags ["total commits: " count plug/subordinates block! ] [!plug stats]
 				if find plug/subordinates word! [
 					vbz: verbose
 					verbose: false
@@ -569,10 +904,41 @@ slim/register [
 						append labels rejoin ["("  plug/valve/links/labeled plug item ")"]
 					]
 					verbose: vbz
-					vprint/tags ["labeled links:  (" labels ")"] [!plug stats]
+					vprint/always/tags ["labeled links:  (" labels ")"] [!plug stats]
 				]
-				vprint/tags "================" [!plug stats]
-				vout/tags [!plug stats]
+				
+				
+				vprint/always/tags "" [!plug stats]
+				vprint/always/tags ["VALUE:"] [!plug stats]
+				vprint/always/tags "---" [!plug stats]
+				either series? plug/liquid [
+					;print "$$$$$$$$"
+					vprint/always/tags rejoin ["" type?/word plug/liquid ": " copy/part mold/all plug/liquid 100 " :"] [!plug stats]
+				][
+					;print "%%%%%%%%"
+					vprint/always/tags rejoin ["" type?/word plug/liquid ": " plug/liquid] [!plug stats]
+				]
+				
+				
+				vprint/always/tags "" [!plug stats]
+				vprint/always/tags "INTERNALS:" [!plug stats]
+				vprint/always/tags "---" [!plug stats]
+				vprint/always/tags [ "pipe?: " any [
+					all [object? plug/pipe? rejoin ["object! sid(" plug/pipe?/sid ")"]]
+					plug/pipe?
+				]] [!plug stats]
+				vprint/always/tags [ "stainless?: " plug/stainless? ] [!plug stats]
+				vprint/always/tags [ "dirty?: " plug/dirty? ] [!plug stats]
+				;vprint/always/tags [ "shared-states: " plug/shared-states ] [!plug stats]
+				vprint/always/tags [ "linked-container?: " plug/linked-container? ] [!plug stats]
+				either series? plug/mud [
+					vprint/always/tags [ "mud: "  copy/part mold/all plug/mud 100 ] [!plug stats]
+				][
+					vprint/always/tags [ "mud: " plug/mud ]  [!plug stats]
+				]
+				
+				vprint/always/tags "================" [!plug stats]
+				vout/always/tags [!plug stats]
 			]
 
 
@@ -593,6 +959,9 @@ slim/register [
 				plug/observers: copy []
 				plug/subordinates: copy []
 
+				append plug-list plug/sid
+				append plug-list plug
+
 				setup plug
 				cleanse plug
 
@@ -610,11 +979,12 @@ slim/register [
 			;  IT IS ILLEGAL TO CALL SETUP IN YOUR CODE.
 			;
 			; called on every NEW plug of THIS class when plug is created.
-			; for any recyclable attributes, also implement them in cleanse.
+			; for any recyclable attributes, implement them in cleanse.
 			; This function is called by valve/init directly.
 			;
-			; At this point, the object is valid wrt liquid, so we can already
-			; call valve methods on the plug (link, for example)
+			; At this point (just before calling setup), the object is valid 
+			; wrt liquid, so we can already call valve methods on the plug 
+			; (link, for example)
 			;
 			;  See also:  INIT, CLEANSE, DESTROY
 			;---------------------
@@ -636,8 +1006,9 @@ slim/register [
 			; This is the complement to the setup function, except that it can be called manually
 			; by the user within his code, whenever he wishes to reset the plug.
 			;
-			; init calls cleanse just after setup, so you can put setup code here too or instead. remember that cleanse can
-			; be called at any moment whereas setup will only ever be called ONCE.
+			; init calls cleanse just after setup, so you can put setup code here too or instead. 
+			; remember that cleanse can be called at any moment whereas setup will only 
+			; ever be called ONCE.
 			;
 			; optionally, you might want to unlink the plug or its members.
 			;
@@ -648,8 +1019,8 @@ slim/register [
 			][
 				vin ["liquid/"  type  "[" plug/sid "]/cleanse" ]
 
-				plug/mud: none
-				plug/liquid: none
+				;plug/mud: none
+				;plug/liquid: none ; this just breaks to many setups.  implement manually when needed.
 
 				; cleanup pointers
 				plug: none
@@ -673,13 +1044,24 @@ slim/register [
 			destroy: func [
 				plug [object!]
 			][
+				;von
+				vin/tags ["!plug/destroy()"] [destroy]
 				plug/valve/unlink plug
+				plug/valve/insubordinate plug
+				plug/valve/detach plug
 				plug/mud: none
 				plug/liquid: none
 				plug/subordinates: none
 				plug/observers: none
+				plug/pipe?: none
+				;plug/shared-states: none
+				plug: first reduce [plug/sid plug/sid: none]
+				if plug: find plug-list plug [
+					remove/part plug 2
+				]
+				vout/tags [destroy]
+				;voff
 			]
-
 
 
 			;-      plug connection methods
@@ -697,10 +1079,15 @@ slim/register [
 
 				; basic plugs accepts all connection which are not the same plug
 				; BE CARFULL, THIS MEANS THAT INFINITE CYCLES ARE ALLOWED
+				;(observer <> subordinate)
 				
-				;(not found? find observer/subordinates subordinate)
-				vout/return vprobe
-				(observer <> subordinate)
+				vout
+				; by default, plugs now do a verification of processing cycles
+				; if you need speed and can implement the cycle call within the manager instead,
+				; you can simply replace this func, but the above warning come into effect.
+				; 
+				; the cycle check slows down linkeage but garantees prevention of deadlocks.
+				not cycle?/with observer subordinate
 			]
 
 
@@ -721,126 +1108,206 @@ slim/register [
 			;---------------------
 			link: func [
 				observer [object!] "plug which depends on another plug, expecting liquid"
-				subordinate [object! none!] "plug which is providing the liquid. none is only supported if label is specified."
+				subordinate [object! none! block!] "plug which is providing the liquid. none is only supported if label is specified. block! links to all plugs in block"
+				/head "this puts the subordinate before all links... <FIXME> only supported in unlabeled mode for now"
 				/label lbl [word! string!] "the label you wish to use if needing to reference plugs by name. labels are always exclusive, meaning you can only have any label only once within your subordinates."
-				/exclusive  "Is the connection exclusive (will disconnect already linked plugs), cooperates with /label refinement"
-				/limit max [integer!] limit-mode [word!] "<FIXME> NOT DONE YET !!! maximum number of connections to perform and how to react when limit is breached"
-				/local subordinates labeled? plug
+				/exclusive  "Is the connection exclusive (will disconnect already linked plugs), cooperates with /label refinement, note that specifying a block and /explicit will result in the last item of the block being linked ONLY."
+				/limit max [integer!] limit-mode [word!] "<TO DO> NOT IMPLEMENTED YET !!! maximum number of connections to perform and how to react when limit is breached"
+				/reset "Unpipes, unlinks the node first and IMPLIES EXCLUSIVE (label is supported as normal). This basically makes SURE the supplied subordinate will become the soul data provider and really will be used."
+				/local subordinates labeled? plug ok?
 			][
 				vin ["liquid/"  type  "(" observer/sid ")/link" ]
-				vout/return 
+				ok?: true
 				
-				either link? observer subordinate [
-					
-					
-					; in exclusive or labeled mode, only connect one thing at a time 
-					; (this should eventually be expanded to support /limit count.
-					any [
-						all [ exclusive label (unlink/only observer lbl true)]
-						all [ exclusive (unlink observer true)]
-					]
-					
-					either true? subordinate/pipe? [
-						vprint "==================================="
-						vprint ["ATTEMPTING TO LINK A !PLUG [" observer/sid "] TO A PIPE SERVER[" subordinate/sid"]"]
-						if label [to-error "liquid/link(): CANNOT LINK PIPE SERVERS USING /label REFINEMENT"]
-							
-						; we don't link anything here, since the pipe? attribute is where we connect
-						; our pipe.  but we use the pipe? attribute to remember who we are listening to.
-						; this setup allows us to keep our connections intact while using piped data
-						; temporarily, automatically reverting to a linked setup if we disconnect from
-						; the pipe!
-						observer/pipe?: subordinate ; plug that it is connected to a pipe
-
+				
+				if reset [
+					observer/valve/detach observer
+					observer/valve/unlink observer
+					either label [
+						observer/valve/link/label observer subordinate lbl 
 					][
-						either label [
-							subordinates: any [
-								all [subordinates: labeled?: find/tail observer/subordinates lbl
-									find subordinates word!]
-							 	tail observer/subordinates
-							]
-							
-							unless labeled? [
-								insert subordinates lbl
-								subordinates: next subordinates
-							]
-							
-							insert subordinates subordinate
-							subordinates: labeled?: none
-						][
-							append observer/subordinates subordinate
-						]
+						observer/valve/link observer subordinate
 					]
-					
-					append subordinate/observers observer
-
-					
-					;unless find observer/shared-states 'init [
-						; getting linked should force an observer refresh
-						dirty observer
-					;]
-
-					true
-				][
-					false
+					return
 				]
+				
+				
+				foreach subordinate compose [(subordinate)] [
+					if object? subordinate [
+						vprint ["linking to : " subordinate/valve/type]
+					]
+					if label [
+						vprint ["At label: " lbl]
+					]
+					either any [
+						all [none? subordinate label]
+						link? observer subordinate
+					][
+						
+						
+						; in exclusive  mode, only connect one thing at a time 
+						; (this should eventually be expanded to support /limit count.
+						any [
+							all [ exclusive label (unlink/only observer lbl true)]
+							all [ exclusive (unlink observer true)]
+						]
+						
+						either all [subordinate true? subordinate/pipe?] [
+							vprint "==================================="
+							vprint ["ATTEMPTING TO LINK A !PLUG [" observer/sid "] TO A PIPE SERVER[" subordinate/sid"]"]
+							if label [to-error "liquid/link(): CANNOT LINK PIPE SERVERS USING /label REFINEMENT"]
+								
+							; we don't link anything here, since the pipe? attribute is where we connect
+							; our pipe.  but we use the pipe? attribute to remember who we are listening to.
+							; this setup allows us to keep our connections intact while using piped data
+							; temporarily, automatically reverting to a linked setup if we disconnect from
+							; the pipe!
+							observer/pipe?: subordinate ; plug that it is connected to a pipe
+	
+						][
+							either label [
+								
+								subordinates: any [
+									all [subordinates: labeled?: find/tail observer/subordinates lbl
+										find subordinates word!]
+								 	tail observer/subordinates
+								]
+								
+								
+								unless labeled? [
+									insert subordinates lbl
+									subordinates: next subordinates
+								]
+								
+								if subordinate [
+									insert subordinates subordinate
+								]
+								
+								subordinates: labeled?: none
+							][
+								if subordinate [
+									either head [
+										insert observer/subordinates subordinate
+									][
+										append observer/subordinates subordinate
+									]
+								]
+							]
+						]
+						
+						; if subordinate is none, don't try to link us to it!
+						if subordinate [
+							either head [
+								append subordinate/observers observer
+							][
+								insert subordinate/observers observer
+							]
+						]
+						
+						;unless find observer/shared-states 'init [
+							; getting linked should force an observer refresh
+							dirty observer
+						;]
+						
+						; callback which allows plugs to perform tricks after being linked
+						observer/valve/on-link observer subordinate
+					][
+						ok?: false
+						break
+					]
+				]
+
+				vout ok?
+
 			]
 
+			;-----------------
+			;-        on-link()
+			;-----------------
+			; makes reacting to linking easier within sub-classes of !plug
+			; 
+			; this is called AFTER the link, so you can react to the link's position 
+			; in the subordinates...  :-)
+			;-----------------
+			on-link: func [
+				plug [object!]
+				subordinate [object!]
+			][
+				vin ["liquid/"  type  "[" plug/sid "]/on-link()" ]
+				vout
+			]
+			
+			
 
 			;---------------------
-			;-        linked?
+			;-        linked? ()
 			;---------------------
-			; is a plug observing another plug? (is it dependent on a plug? other)
+			; is a plug observing another plug? (is it dependent or piped?)
 			; 
 			;---------------------
 			linked?: func [
 				plug "plug to verify" [object!]
+				/only "does not consider a piped plug as linked, usually used when we want to go to/from (toggle) piped mode."
+				/with subordinate [object!] "only returns true if we are linked with a specific subordinate"
 			][
-				vin ["liquid/"  type  "[" plug/sid "]/linked?" ]
+				vin ["liquid/"  type  "[" plug/sid "]/linked?()" ]
 				vout/return	vprobe true? any [
-					not empty? plug/subordinates
-					object? plug/pipe?
+					all [
+						not empty? plug/subordinates
+						any [
+							; any connection is good?
+							not with
+							; is the subordinate already linked?
+							find plug/subordinates subordinate
+						]	
+					]
+					all [not only object? plug/pipe?]
 				]
 			]
 
 
 			;---------------------
-			;-        sub
+			;-        sub()
 			;---------------------
 			; returns specific links from our subordinates
 			;---------------------
 			sub: func [
 				plug [object! block!]
-				/labeled label [word!]
+				/labeled labl [word!] ; deprecated, backwards compatibility only.  do not use.  will eventually be removed
+				/label lbl [word!]
 				;/start sindex
 				;/end eindex
 				;/part amount
 				/local amount blk src-blk
 			][
+				if labeled [lbl: labl label: true] ; deprecated, backwards compatibility only.  do not use.  will eventually be removed
+				
 				src-blk: any [
 					all [block? plug plug]
 					plug/subordinates
 				]	
 				
-				either labeled [
-					either labeled: find/tail src-blk label [
-						unless amount: find labeled word! [ ; till next label or none (till end).
-							amount: tail labeled
+				either label [
+					either label: find/tail src-blk lbl [
+						unless amount: find label word! [ ; till next label or none (till end).
+							amount: tail label
 						]
-						blk: copy/part labeled amount ; if they are the same, nothing is copied
+						blk: copy/part label amount ; if they are the same, nothing is copied
 					][
 						blk: none
 					]
 				][
 					blk: none
 				]
-				return first reduce [blk src-blk: labeled: amount: blk: none]
+				return first reduce [blk src-blk: labeled: label: lbl: labl: amount: blk: none]
 			]
 
 
 			;---------------------
-			;-        links
+			;-        links()
 			;---------------------
+			; a generalized link querying method.  supports different modes based on refinements.
+			;
 			; returns the number of plugs we are observing
 			;---------------------
 			links: func [
@@ -880,7 +1347,7 @@ slim/register [
 
 
 			;---------------------
-			;-        unlink
+			;-        unlink()
 			;---------------------
 			; unlink myself
 			; by default,  we will be unlinked from ALL our subordinates.
@@ -975,11 +1442,24 @@ slim/register [
 			]
 
 
-
+			;--------------------
+			;-        insubordinate()
+			;--------------------
+			insubordinate: func [
+				""
+				plug [object!]
+				/local observer
+			][
+				vin/tags ["insubordinate()"] [insubordinate]
+				foreach observer copy plug/observers [
+					observer/valve/unlink/only observer plug
+				]
+				vout/tags [insubordinate]
+			]
 
 
 			;---------------------
-			;-        disregard
+			;-        disregard()
 			;---------------------
 			; this is a complement to unlink.  we ask the engine to remove the observer from
 			; the subordinate's observer list, if its present.
@@ -993,7 +1473,7 @@ slim/register [
 				/part amount [integer!] "Only if subordinate is a block!, if amount is 0, nothing happends."
 				/local blk iblk subordinate
 			][
-				vin/tags ["liquid/"  type  "(" observer/sid ")/disregard" ] [liquid !plug disregard]
+				vin/tags ["liquid/"  type  "(" observer/sid ")/disregard()" ] [liquid !plug disregard]
 				either block? subordinates [
 					subordinates: copy/part iblk: subordinates any [amount 1]
 					remove/part iblk length? subordinates
@@ -1042,7 +1522,12 @@ slim/register [
 			][
 				vin/tags ["liquid/"  type  "(" plug/sid ")/new-pipe" ] [!plug new-pipe]
 				; unlink plug ; we keep our connections but don't react to them anymore
-				newplug: make !plug [self/valve/init self]
+				
+				vprint ["PIPE MASTER TYPE: " pipe-server-class/valve/type]
+
+				; if you want a custom plug server class, just set the pipe-server-class within your class.
+				newplug: make pipe-server-class [self/valve/init self]
+				
 				newplug/pipe?: true ; tells new plug that IT is a pipe server
 				link plug newplug ; we want to be aware of pipe changes. (this will also connect the pipe in our pipe? attribute)
 				vout/tags [!plug new-pipe]
@@ -1099,9 +1584,10 @@ slim/register [
 			;---------------------
 			;-        detach()
 			;---------------------
+			; <TO DO> ? verify if the pipe server is then orphaned (not serving anyone) and in this case call destroy on it)
 			;--------------------
 			detach: func [
-				"Unlink ourself from a pipe, causing it to stop messaging us (propagating)."
+				"Unlink ourself from a pipe, causing it to stop messaging us (propagating). also returns a simple container to a dependency type plug."
 				plug [object!]
 				/local pipe
 			][
@@ -1110,8 +1596,8 @@ slim/register [
 					if pipe: find plug/pipe?/observers plug [
 						remove pipe
 					]
-					plug/pipe?: none
 				]
+				plug/pipe?: none
 				vout/tags [detach]
 				pipe: plug: none
 			]
@@ -1126,47 +1612,62 @@ slim/register [
 				"Fills a plug with liquid directly. (stored as mud until it gets cleaned.)"
 				plug [object!]
 				mud ; data you wish to fill within plug's pipe
-				/pipe "tells the engine to make sure this is a pipe, only needs to be called once.  Once called, it will automatically react as such."
+				/commit "<TO DO> If the current data source is not yet commited, fill it as a commit.  BE CAREFULL this will unlink from data sources, if it finds a link where it would fill/commit a value."
+				/pipe "tells the engine to make sure this is a pipe, only needs to be called once."
 				/local newplug fplug changed?
 			][
-				vin ["liquid/"  type  "(" plug/sid ")/fill" ]
+				vin ["liquid/"  type  "(" plug/sid ")/fill()" ]
 
 				; revised default method creates a container type plug, instead of a pipe.
-				; useage indicates that piping is not always needed, and creates a processing overhead
+				; usage indicates that piping is not always needed, and creates a processing overhead
 				; which is noticeable, in that by default, two nodes are created and filling data needs
 				; to pass through the pipe.  in most filling ops, this is not usefull, as all the
-				; plus is used for is storing a value.
+				; plug is used for is storing a value.
 				;
 				; a second reason is that from now on a new switch is being added to the plug,
-				; so that plugs can be containers and still be linked.  this can simply many types
-				; of networks, since networks, often are refinements of prior nodes.  so in that optic,
+				; so that plugs can be containers and still be linked.  this can simplify many types
+				; of graphs, since graphs are often refinements of prior nodes.  so in that optic,
 				; allowing us to use data and then modifying it according to local data makes
 				; a lot of sense.
 				either any [
-					pipe 
+					plug/valve/pipe plug
 					plug/pipe?
 				][
 					; get the plug we need to fill... current or new
-					plug: self/pipe/always plug
+					plug: plug/valve/pipe/always plug
 				][
 					; convert this plug into a container
 					plug/pipe?: 'simple
 				]
 				plug/mud: mud
-				dirty plug
+				plug/valve/dirty plug
 				vout/return mud
 			]
 
 
 
+			;--------------------
+			;-        commit()
+			; <TO DO>
+			;--------------------
+			commit: func [
+				"<TO DO> Using the data from a subordinate, store its data directly within the subordinate's block.  Using /fill, you can alternatively supply the data directly. "
+				plug [object!]
+				/label lbl [word!]
+				/fill data
+			][
+				vin/tags ["commit()"] [commit]
+				
+				vout/tags [commit]
+			]
+
+			;-      messaging methods
+			
 
 
-
-
-			;-      computing methods
 
 			;---------------------
-			;-        dirty
+			;-        dirty()
 			;---------------------
 			; react to our link being set to dirty.
 			; if the special shared-state contains init, no propagation occurs.
@@ -1175,24 +1676,29 @@ slim/register [
 				plug "plug to set dirty" [object!]
 				/always "do not follow stainless? as dirty is being called within a processing operation.  prevent double process, deadlocks"
 			][
-				vin/tags ["liquid/"  type  "[" plug/sid "]/dirty" ] [!plug dirty]
+				vin/tags ["liquid/"  type  "[" plug/sid "]/dirty()" ] [!plug dirty]
 				plug/dirty?: true
 
 				; being stainless? forces a cleanup call right after being set dirty...
 				; use this sparingly as it increases average processing and will slow
-				; down your code by forcing every plug to process all the time which
-				; is not needed when using cleanup method smartly.
+				; down your code by forcing every plug to process all changes,
+				; all the time which is not needed unless you nead interactivity.
 				;
 				; it can be usefull to set a user observed plug so that any
 				; changes to the plugs, gets refreshed in an interactive UI..
-				unless find plug/shared-states 'init [
+				;either not find plug/shared-states 'init [
 					if plug/stainless? [
 						if not always [
 							cleanup plug
 						]
 					]
-					propagate plug
-				]
+					if propagate? plug [
+						propagate plug
+					]
+				;][
+					;prin "."
+				;]
+				
 				; clean up
 				plug: none
 				vout/tags [!plug dirty]
@@ -1203,7 +1709,7 @@ slim/register [
 
 
 			;---------------------
-			;-        instigate
+			;-        instigate()
 			;---------------------
 			; following method does not cause subordinate processing if they are clean :-)
 			; very computationaly eFishAnt (tm)Steve Shireman
@@ -1213,7 +1719,7 @@ slim/register [
 				plug [object!]
 				/local subordinate blk
 			][
-				vin/tags ["liquid/"  type  "[" plug/sid "]/instigate" ] [!plug instigate]
+				vin/tags ["liquid/"  type  "[" plug/sid "]/instigate()" ] [!plug instigate]
 				blk: copy []
 				if linked? plug [
 					;-------------
@@ -1226,15 +1732,22 @@ slim/register [
 						; linked plug
 						; force each input to process itself.
 						foreach subordinate plug/subordinates [
-							either object? subordinate [
-								append/only blk  subordinate/valve/cleanup subordinate
-							][
-								either word? subordinate [
-									; here we make the word pretty hard to clash with. Just to make instigation safe.  otherwise non-obvious word clashes might occur, when actual data returned by links are words
-									append/only blk to-word rejoin ['! subordinate '!] 
-								][
-									to-error rejoin ["liquid sid: [" plug/sid "] subordinates block cannot contain data of type: " type? subordinate]
+							switch/default type?/word subordinate [
+								object! [
+									append/only blk  subordinate/valve/cleanup subordinate
 								]
+								word! [
+									; here we make the word pretty hard to clash with. Just to make instigation safe.
+									; otherwise unobvious word useage clashes might occur, 
+									; when actual data returned by links are words
+									; use objectify func for easier (slower) access to this block
+									append/only blk to-word rejoin [subordinate '=]
+								]
+								none! [
+									append blk none
+								]
+							][
+								to-error rejoin ["liquid sid: [" plug/sid "] subordinates block cannot contain data of type: " type? subordinate]
 							]
 						]
 					]
@@ -1250,11 +1763,26 @@ slim/register [
 			]
 
 
+			;-----------------
+			;-        propagate?()
+			;-----------------
+			; should this plug perform propagation?
+			; some optmisized nodes can take advantage of linkeage data, streaming, internal
+			; states to forego of propagation to observers, which greatly enhanced efficiency
+			; of a network.
+			;-----------------
+			propagate?: func [
+				plug
+			][
+				true
+			]
+			
+			
 
 
 
 			;---------------------
-			;-        propagate
+			;-        propagate()
 			;---------------------
 			; cause observers to become dirty
 			;---------------------
@@ -1262,32 +1790,141 @@ slim/register [
 				plug [object!]
 				/local tmpplug
 			][
-				vin/tags ["liquid/"  type  "[" plug/sid "]/propagate" ] [ !plug propagate]
+				vin/tags ["liquid/"  type  "[" plug/sid "]/propagate()" ] [ !plug propagate]
 				; tell our observers that we have changed
 				; some plugs will then process (stainless), other will
 				; just acknowledge their dirtyness and return.
 				;
 				; v0.5 change
 				; do not dirty the node if it is piped and we are not its pipe.
-				foreach tmpplug plug/observers [
-					either tmpplug/pipe? [
-						either (same? tmpplug/pipe? plug) [
-							tmpplug/valve/dirty tmpplug
+				;
+				; v0.6 change:
+				; now supports linked-containers (was a lingering bug) where they would never get dirty
+				; 
+				; v0.7 extension:
+				; support frozen?
+				unless plug/frozen? [
+					foreach tmpplug plug/observers [
+						either object? tmpplug/pipe?  [
+							either (same? tmpplug/pipe? plug) [
+								tmpplug/valve/dirty tmpplug
+							][
+								vprint/tags ["ignoring piped observer["tmpplug/sid"], we are not observer's pipe"] [ !plug propagate]
+							]
 						][
-							vprint/tags ["ignoring piped observer["tmpplug/sid"], we are not observer's pipe"] [ !plug propagate]
+							tmpplug/valve/dirty tmpplug
 						]
-					][
-						tmpplug/valve/dirty tmpplug
 					]
+					tmpplug: none
 				]
-				plug:none
-				tmpplug: none
+				plug: none
 				vout/tags [!plug propagate]
 			]
 
 
+			;----------------------
+			;-        stream()
+			;----------------------
+			; v0.8.0 new feature.
+			; this allows a node to broadcast a message just like propagation, but
+			; instead of handling simple dirtyness, an acutal message packet is 
+			; sent from node to node depth first, in order of observer links
+			;
+			; any node down the chain can inspect the message and decide if he wants 
+			; to handle it.  in such a case, he will decide if the handling may
+			; interest children or not. he may mutate the message, or add a return element
+			; to it, and simply return. any node which detects the return element in the
+			; message must simply stop propagating the message, cause it has been detected
+			; and is a single point reply (only one node should reply).
+			;
+			; in the case where the stream is meant as an accumulator, the return message 
+			; may simply include a new element which starts by 'return- (ex: 'return-size)
+			; this will not provoke an arbitrary propagation end.
+			;
+			; it is good style (and actually suggested) that you use the plug's type name
+			; within the message element and accumulator-type return values because 
+			; it ensures the element names does not conflict with other plug authors msg.
+			;
+			; the stream message format is as follows.
+			;
+			; [ ; overall container
+			;     'plugtype [plug/sid 'tag1: value1 'tag2: value2 ... 'tagN: valueN ] ; first message packet
+			;     'plugtype [plug/sid 'tag1: value1 'tag2: value2 ... 'tagN: valueN ] ; second  message packet
+			;     'plugtype [plug/sid 'tag1: value1 'tag2: value2 ... 'tagN: valueN ] ; third  message packet
+			;     ...
+			;     'return [return-plug/sid 'tag1: value1 'tag2: value2 ... 'tagN: valueN ]  ; return message (only one)
+			; ]
+			;
+			; using the sid instead of a plug pointer limits the probability of memory sticking 
+			; within the GC, uses less ram, and is MUCH more practical cause you can print the message.
+			;
+			;
+			; RETURNS true if streaming should end
+			;----------------------
+			stream: func [
+				plug [object!]
+				msg [block! ] "Msg is SHARED amongst all observers"
+				/init "Contstruct the initial message using msg as the message content"
+				/as name "Alternate name for the message packet label (only used with init)"
+				/depth dpt "Only go so many observers deep."
+				/local end?
+			][
+				vin/tags ["liquid/"  type  "(" plug/sid ")/stream" ] [!plug filter]
+				end?: false
+				if init [
+					vprint "INITIALIZING message"
+					name: any [name plug/valve/type]
+					insert head msg plug/sid 
+					msg: reduce [name msg]
+				]
+				; on-stream returns true if we should end streaming.
+				either plug/valve/on-stream plug msg [
+					end? true
+				][
+					either plug/frozen? [
+						end? true
+					][
+						dpt: any [dpt - 1 1024]
+						
+						if dpt >= 0 [
+							; we just reuse the init word, to s0ve from allocating an extra word for nothing
+							foreach init plug/observers [
+								if init/valve/stream/depth init msg dpt [
+									end?: true
+									exit ; stop looking for the end, we got it.
+								]
+							]
+						]
+					]
+				]
+				vout
+				
+				; end streaming?
+				end?
+			]
+			
 			;---------------------
-			;-        filter
+			;-        on-stream()
+			;----------------------
+			; 
+			;----------------------
+			on-stream: func [
+				plug [object!]
+				msg [block! ]
+			][
+				vin/tags ["liquid/"  type  "(" plug/sid ")/on-stream()" ] [!plug filter]
+				vprobe reduce ["STREAMED: " msg]
+				vout
+				
+				; end streaming?
+				false
+			]
+			
+			;-      computing methods
+
+
+			;---------------------
+			;-        filter()
 			;---------------------
 			; this is a very handy function which influences how a plug processes.
 			;
@@ -1302,6 +1939,8 @@ slim/register [
 			;
 			; note that if a plug is piped, this function is never called.
 			;
+			; in the case of linked-container?s? the function is now called, and so you can fix it as normal.
+			;
 			; eventually, returning none might force purify to propagate the stale state to all dependent plugs
 			;---------------------
 			filter: func [
@@ -1309,20 +1948,21 @@ slim/register [
 				values [block!] "values we wish to filter."
 				/local tmpplug
 			][
-				vin/tags ["liquid/"  type  "(" plug/sid ")/filter" ] [!plug filter]
-				if plug/pipe? [to-error "FILTER() CANNOT BE CALLED ON A PIPED NODE!"]
+				vin ["liquid/"  type  "(" plug/sid ")/filter()" ]
+				if object? plug/pipe? [to-error "FILTER() CANNOT BE CALLED ON A PIPED NODE!"]
 					
 				; Do not forget that we must return a block, or we wont process.
 				;
 				; <FIXME>:  add process cancelation in this case (propagate stale?) .
-				vout/return/tags values [!plug filter]
+				vout
+				values 
 			]
 
 
 
 
 			;---------------------
-			;-        process
+			;-        process()
 			;---------------------
 			; process the plug's liquid
 			;---------------------
@@ -1330,7 +1970,7 @@ slim/register [
 				plug [object!]
 				values [block!] "filtered and ultimately valid data"
 			][
-				vin/tags ["liquid/"  type  "(" plug/sid ")/process" ] [!plug process]
+				vin/tags ["liquid/"  type  "(" plug/sid ")/process()" ] [!plug process]
 
 				vprint "LOADING VALUE FROM SUBORDINATE"
 				; get our subordinate's liquid
@@ -1345,7 +1985,7 @@ slim/register [
 
 
 			;---------------------
-			;-        purify
+			;-        purify()
 			;---------------------
 			; purify is a handy way to fix the filled mud, piped data, or recover from a failed process.
 			; basically, this is the equivalent to a filter, but AFTER all processing occurs.
@@ -1368,19 +2008,23 @@ slim/register [
 				plug [object!]
 				/stale "Tells the purify method that the current liquid is stale and must be recovered or an error propagated"
 			][
-				vin/tags ["liquid/"  type  "(" plug/sid ")/purify" ] [!plug purify]
+				vin/tags ["liquid/"  type  "(" plug/sid ")/purify()" ] [!plug purify]
 				if stale [
-					vprint "plug is stale!:"
+					;print "plug is stale!:"
 					; <FIXME> propagate stale state !!!
 				]
-					
-				vout/return/tags false [!plug purify]
+				;print ["purify: "sid " : " (not none? stale) " " plug/liquid]
+				; by default we will only stay dirty if stale was specified.
+				; this allows us to make filter blocks which do not process until credentials
+				; are met and the plug will continue to try to evaluate until its 
+				; satisfied.
+				vout/return/tags (not none? stale) [!plug purify]
 			]
 
 
 
 			;---------------------
-			;-        cleanup
+			;-        cleanup()
 			;---------------------
 			; processing manager, instigates our subjects to clean themselves and causes a process
 			; ONLY if we are dirty. no point in reprocessing our liquid, if we are already clean.
@@ -1389,8 +2033,9 @@ slim/register [
 				plug [object!]
 				/local data oops!
 			][
-				vin/tags ["liquid/"  type  "[" plug/sid "]/cleanup" ] [!plug cleanup]
-				if plug/dirty? [
+				vin/tags ["liquid/"  type  "[" plug/sid "]/cleanup()" ] [!plug cleanup]
+				unless any [not plug/dirty? plug/frozen?] [
+				
 					;------
 					; if plug is a pipe server, not much to do except accept fill data.
 					;------
@@ -1398,11 +2043,11 @@ slim/register [
 						true? plug/pipe?
 						all [
 							plug/pipe? = 'simple
-							plug/linked-container = false
+							plug/linked-container? = false
 						]
 					][
 						data: plug/liquid:  plug/mud
-						oops: false
+						oops!: false
 					][
 						;------
 						; at this point we know the plug is supposed to observe data (or eventually will).
@@ -1410,13 +2055,15 @@ slim/register [
 						; refresh dependencies
 						data: instigate plug
 						
+						
 						if all [
 							plug/pipe? = 'simple
-							plug/linked-container = true
+							plug/linked-container? = true
 						][
-							vprint "WE ADD MUD SINCE THIS IS A LINKED-CONTAINER"
-							append/only data plug/mud
+							vprint "WE INSERT MUD SINCE THIS IS A linked-container?"
+							data: head insert/only data plug/mud
 						]
+						
 						
 						either object? plug/pipe? [
 							;------
@@ -1428,7 +2075,8 @@ slim/register [
 							; only process if filter allows it
 							;------
 							unless oops!: not block? data: plug/valve/filter plug data [
-								process plug data
+								plug/valve/process plug data
+								
 		
 								; simple trick which allows singular plugs to adapt after the standard
 								; plug has processed...
@@ -1438,15 +2086,21 @@ slim/register [
 							]
 						]
 					]
+
 					;------
 					; allow a node to fix the value within plug/liquid to make sure its always within 
 					; specs, no matter how its origin (or lack thereoff)
 					;------
+					;print "^/----->:"
 					plug/dirty?: either oops! [
-						purify/stale plug
+						plug/valve/purify/stale plug
 					][
-						purify plug
+						plug/valve/purify plug
 					]
+
+
+				
+					;print plug/dirty?
 				]
 				vout/return/tags plug/liquid [!plug cleanup]
 			]
@@ -1454,7 +2108,7 @@ slim/register [
 
 
 			;---------------------
-			;-        content
+			;-        content()
 			;---------------------
 			; method to get plug's processed value, just a more logical semantic value
 			; when accessing a liquid from the outside.
@@ -1468,6 +2122,9 @@ slim/register [
 			content: :cleanup
 		]
 	]
+	
+	; we use ourself as the basis for pipe servers by default.
+	!plug/valve/pipe-server-class: !plug
 ]
 
 

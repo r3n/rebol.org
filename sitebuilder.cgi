@@ -78,13 +78,16 @@ if ((submitted/2 = none) or (submitted/4 = none)) [
 
 ; check user/pass every time - end program if incorrect:
 
-username: submitted/2 password: submitted/4 
-either ((username = "username") and (password = "password")) or ((find submitted/2 {Content-Disposition: form-data;}) <> none) [
-    ; if user/pass is ok, go on
+
+username: "username"  password: "password"
+    
+myusername: submitted/2  mypassword: submitted/4
+either ((username = myusername) and (password = mypassword)) or ((find submitted/2 {Content-Disposition: form-data;}) <> none) [
+     ; if user/pass is ok, go on
 ][
-    print "Incorrect Username/Password." 
-    print {</BODY></HTML>} quit
-]
+     print "Incorrect Username/Password."
+     print {</BODY></HTML>} quit
+] 
 
 if not exists? %sitemap.r [
     write %sitemap.r {%Home []} 
@@ -123,13 +126,13 @@ RvEVj+o26E6kOyC6/wuK27PN6mEQ6Ucn/xAB7vRbbhZ/ZyWrPy/9eBRiF63XtmxC
 cAhPYgq62TeKJz7tXwz8v0F/TBDpl1aY/wDPpuhm7AwAAA==
 } [read write execute read write execute read write execute]
     if error? try [call {chmod 755 ./upload.cgi}] [
-        print {
+        print rejoin [{
             <center><table border="1" width=80% cellpadding="10"><tr><td>
             <strong>./upload.cgi</strong> has been created, but there was apparently a problem
             setting permissions for it.  Please be sure that upload.cgi is chmod to 755.<br><br>
-            <center><a href="./sitebuilder.cgi?name=username&pass=password&submit=submit">Continue</a>
+            <center><a href="./sitebuilder.cgi?name=} username {&pass=} password {&submit=submit">Continue</a>
             </center></td></tr></table></center></BODY></HTML>
-        } quit
+        }] quit
     ]
 ]
 
@@ -146,7 +149,7 @@ if submitted/6 = "submit" [
         <FORM ACTION="./upload.cgi" METHOD="post" ENCTYPE="multipart/form-data">
         Upload File: <INPUT TYPE="file" size="50" NAME="photo">
         <INPUT TYPE="submit" NAME="Submit" VALUE="Upload">
-        <a href="./sitebuilder.cgi?name=username&pass=password&subroutine=listfiles">Files</a>  
+ &nbsp;  &nbsp;  &nbsp;   <a href="./sitebuilder.cgi?name=} username {&pass=} password {&subroutine=listfiles">Files</a>  
         </FORM>
         <FORM method="post" ACTION="./sitebuilder.cgi"> 
         <INPUT TYPE=hidden NAME=username VALUE="} submitted/2 {">
@@ -166,17 +169,17 @@ if submitted/6 = "submit" [
     print "<hr><br>Edit Existing Pages:<br><br>"
     foreach page pages [
         print rejoin [
-            {<a href="./sitebuilder.cgi?name=username&pass=password&subroutine=edit&file=}
+            {<a href="./sitebuilder.cgi?name=} username {&pass=} password {&subroutine=edit&file=}
             to-string page {">} to-string page {</a> &nbsp; &nbsp;
             } ; <br>}
         ]
     ]
     print {<br><br><hr>}
-    print {<a href="./sitebuilder.cgi?name=username&pass=password&subroutine=cleanedit&file=sitemap.r">Edit Site Map</a>       }
-    print {<a href="./sitebuilder.cgi?name=username&pass=password&subroutine=buildsite">Build Site</a>       }
-    print rejoin [{<a href="./} (to-string first load %sitemap.r) {.html" target=_blank>View Home Page</a>       }]
-    print {<a href="./sitebuilder.cgi?name=username&pass=password&subroutine=console">Console</a>       }
-    print {<a href="./sitebuilder.cgi?name=username&pass=password&subroutine=instructions">Instructions</a>}
+    print rejoin [{<a href="./sitebuilder.cgi?name=} username {&pass=} password {&subroutine=cleanedit&file=sitemap.r">Edit Site Map</a> &nbsp;  &nbsp;  &nbsp;  }]
+    print rejoin [{<a href="./sitebuilder.cgi?name=} username {&pass=} password {&subroutine=buildsite">Build Site</a> &nbsp;  &nbsp;  &nbsp;  }]
+    print rejoin [{<a href="./} (to-string first load %sitemap.r) {.html" target=_blank>View Home Page</a> &nbsp;  &nbsp;  &nbsp;  }]
+    print rejoin [{<a href="./sitebuilder.cgi?name=} username {&pass=} password {&subroutine=console">Console</a> &nbsp;  &nbsp;  &nbsp;  }]
+    print rejoin [{<a href="./sitebuilder.cgi?name=} username {&pass=} password {&subroutine=instructions">Instructions</a>}]
     print {<br></td></tr></table></center></BODY></HTML>} quit
 ]
 
@@ -1369,7 +1372,7 @@ if submitted/6 = "edit" [
         <textarea id="textarea1" name="test1" cols="100" rows="15" name="contents">}
         replace/all document_text "</textarea>" "<\/textarea>"
         {</textarea>
-        <a href="./sitebuilder.cgi?name=username&pass=password&subroutine=listfiles-popup" target=_blank><FONT size=1>Files</FONT></a><BR><BR>
+        <a href="./sitebuilder.cgi?name=} username {&pass=} password {&subroutine=listfiles-popup" target=_blank><FONT size=1>Files</FONT></a><BR><BR>
         <INPUT TYPE="SUBMIT" NAME="Submit" VALUE="Submit">
         </FORM></center></BODY></HTML>}
     ]
@@ -1402,7 +1405,7 @@ if submitted/6 = "cleanedit" [
         <textarea id="textarea12" name="test2" cols="100" rows="15" name="contents">}
         replace/all document_text "</textarea>" "<\/textarea>"
         {</textarea><br>
-        <a href="./sitebuilder.cgi?name=username&pass=password&subroutine=listfiles-popup" target=_blank><FONT size=1>Files</FONT></a><BR><BR>
+        <a href="./sitebuilder.cgi?name=} username {&pass=} password {&subroutine=listfiles-popup" target=_blank><FONT size=1>Files</FONT></a><BR><BR>
         <INPUT TYPE="SUBMIT" NAME="Submit" VALUE="Submit">
         </FORM></center></BODY></HTML>}
     ]
@@ -1425,17 +1428,17 @@ if submitted/6 = "save" [
         prin {<table border="1" width=80% cellpadding="10"><tr><td><center>Now ADD this page as a SUB-PAGE of another in your site map:<br><br>}
         foreach page sitemap-pages [
             prin rejoin [
-                {<a href="./sitebuilder.cgi?name=username&pass=password&subroutine=addsitemap&newpage=}
-                submitted/8 {&existingpage=} page {">} page {</a>       }
+                {<a href="./sitebuilder.cgi?name=} username {&pass=} password {&subroutine=addsitemap&newpage=}
+                submitted/8 {&existingpage=} page {">} page {</a> &nbsp;  &nbsp;  &nbsp;  }
             ]
         ]
-        print {
+        print rejoin [{
             <br><br>If you've ALREADY added this page to your site map, or if you do not want it in your site map
-            <a href="./sitebuilder.cgi?name=username&pass=password&submit=submit"><strong>click here</strong></a>
+            <a href="./sitebuilder.cgi?name=} username {&pass=} password {&submit=submit"><strong>click here</strong></a>
             </center><br></td></tr></table></center>
-        } 
+        }]
     ] [
-        print {<html><head><META HTTP-EQUIV="REFRESH" CONTENT="0; URL=./sitebuilder.cgi?name=username&pass=password&submit=submit"></head>}
+        print rejoin [{<html><head><META HTTP-EQUIV="REFRESH" CONTENT="0; URL=./sitebuilder.cgi?name=} username {&pass=} password {&submit=submit"></head>}]
     ]
     print {</BODY></HTML>} quit
 ]
@@ -1455,7 +1458,7 @@ if submitted/6 = "addsitemap" [
     ] 
     recurse-add-sitemap new-site-map: load %sitemap.r
     save %sitemap.r new-site-map
-    print {<html><head><META HTTP-EQUIV="REFRESH" CONTENT="0; URL=./sitebuilder.cgi?name=username&pass=password&submit=submit"></head>}
+    print rejoin [{<html><head><META HTTP-EQUIV="REFRESH" CONTENT="0; URL=./sitebuilder.cgi?name=} username {&pass=} password {&submit=submit"></head>}]
 ]
 
 ; If file upload has been submitted:
@@ -1517,7 +1520,7 @@ if ((find submitted/2 {Content-Disposition: form-data;}) <> none) [
     ; Write file to server using the original filename, and notify the user:
     the-file: last split-path to-file copy cgi-object/photo/filename
     write/binary the-file cgi-object/photo/content
-    print {<center><a href="./sitebuilder.cgi?name=username&pass=password&submit=submit">Back to Sitebuilder</a><br>}
+    print rejoin [{<center><a href="./sitebuilder.cgi?name=} username {&pass=} password {&submit=submit">Back to Sitebuilder</a><br>}]
     print {<table width=80% border=1>}
     print {<tr><td width=100%><br><center>}
     print {
@@ -1535,13 +1538,13 @@ if ((find submitted/2 {Content-Disposition: form-data;}) <> none) [
 ; List existing files:
 
 if submitted/6 = "listfiles" [
-    print {<center><a href="./sitebuilder.cgi?name=username&pass=password&submit=submit">Back to Sitebuilder</a><br>}
+    print rejoin [{<center><a href="./sitebuilder.cgi?name=} username {&pass=} password {&submit=submit">Back to Sitebuilder</a><br>}]
     print {<table width=60% border=1 cellpadding="10">}
     print {<tr><td width=100%><br>}
     folder: sort read %.
     foreach file folder [
-        print [rejoin [{    <a href="./sitebuilder.cgi?name=username&pass=password&subroutine=cleanedit&file=} file {">(edit)</a>    }]] 
-        print [rejoin [{<a href="./} file {" target=_blank>} file {</a><br>}]]
+        print rejoin [{ &nbsp;  &nbsp; <a href="./sitebuilder.cgi?name=} username {&pass=} password {&subroutine=cleanedit&file=} file {">(edit)</a> &nbsp;  &nbsp; }]
+        print rejoin [{<a href="./} file {" target=_blank>} file {</a><br>}]
     ]
     print {<br></td></tr></table></center></BODY></HTML>}
     quit
@@ -1562,7 +1565,7 @@ if submitted/6 = "listfiles-popup" [
 
 if submitted/6 = "console" [
     if not exists? %rebol276 [print "<center>REBOL version 276 required!</center><br>"]
-    print {<center><a href="./sitebuilder.cgi?name=username&pass=password&submit=submit">Back to Sitebuilder</a></center>}
+    print rejoin [{<center><a href="./sitebuilder.cgi?name=} username {&pass=} password {&submit=submit">Back to Sitebuilder</a></center>}]
     entry-form: [
         print {
             <CENTER><FORM METHOD="post" ACTION="./sitebuilder.cgi"> 
@@ -1705,7 +1708,7 @@ if submitted/6 = "buildsite" [
     ]
     print {<center><table border="1" width=80% cellpadding="10"><tr><td>}
     recurse mymap: load %sitemap.r current-path
-    print {</td></tr></table><br><a href="./sitebuilder.cgi?name=username&pass=password&submit=submit">Back to Sitebuilder</a></center>}
+    print rejoin [{</td></tr></table><br><a href="./sitebuilder.cgi?name=} username {&pass=} password {&submit=submit">Back to Sitebuilder</a></center>}]
     if not exists? %index.html [
         write %index.html rejoin [{
             <html>
@@ -1876,7 +1879,7 @@ if submitted/6 = "instructions" [
 
         rename %oldfile.txt %newfile.txt
         delete %unwanted_file.txt
-        foreach file (read ftp://u:p@site.com/) [write file read (join http://site.com/ file)]
+        foreach file (read ftp://u:%p--site--com/) [write file read (join http://site.com/ file)]
         (You can perform almost any non-interactive operation possible in the REBOL console)
 
     During use, backups are automatically created of any file which is edited using the
