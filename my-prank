@@ -1,0 +1,16 @@
+REBOL [
+	File: %my-prank
+	Date: 05-Feb-2010
+	Title: "Fake Virus"
+	Purpose: {prank a friend}
+]
+
+block: [
+    h2 "Congratulations! You have successfully installed an advanced Trojan Horse on your system. In ten seconds, your computer will crash."
+    button "Proceed" [unview]
+]
+view layout block
+
+alert "Bye Bye!"
+alert "You're so lame!"
+alert "I can't believe you fell for that!"
